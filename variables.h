@@ -192,7 +192,7 @@ typedef struct _vlist {
 	      (var)->exportstr = (char *)NULL; \
 	    } \
 	} while (0)
-	
+
 /* Stuff for hacking variables. */
 typedef int sh_var_map_func_t __P((SHELL_VAR *));
 
@@ -231,7 +231,7 @@ extern void bind_function_def __P((const char *, FUNCTION_DEF *));
 
 extern SHELL_VAR **map_over __P((sh_var_map_func_t *, VAR_CONTEXT *));
 SHELL_VAR **map_over_funcs __P((sh_var_map_func_t *));
-     
+
 extern SHELL_VAR **all_shell_variables __P((void));
 extern SHELL_VAR **all_shell_functions __P((void));
 extern SHELL_VAR **all_visible_variables __P((void));
@@ -342,6 +342,7 @@ extern void sv_comp_wordbreaks __P((char *));
 extern void sv_terminal __P((char *));
 extern void sv_hostfile __P((char *));
 extern void sv_winsize __P((char *));
+extern void sv_commander __P((char *));
 #endif
 
 #if defined (__CYGWIN__)

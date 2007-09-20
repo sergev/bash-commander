@@ -70,6 +70,10 @@
 #  include "pcomplete.h"
 #endif
 
+#if defined (COMMANDER)
+#  include "commander.h"
+#endif
+
 #define TEMPENV_HASH_BUCKETS	4	/* must be power of two */
 
 #define ifsname(s)	((s)[0] == 'I' && (s)[1] == 'F' && (s)[2] == 'S' && (s)[3] == '\0')
@@ -239,7 +243,7 @@ static int visible_array_vars __P((SHELL_VAR *));
 static SHELL_VAR *bind_tempenv_variable __P((const char *, char *));
 static void push_temp_var __P((PTR_T));
 static void propagate_temp_var __P((PTR_T));
-static void dispose_temporary_env __P((sh_free_func_t *));     
+static void dispose_temporary_env __P((sh_free_func_t *));
 
 static inline char *mk_env_string __P((const char *, const char *));
 static char **make_env_array_from_var_list __P((SHELL_VAR **));
@@ -915,7 +919,7 @@ print_func_list (list)
       printf ("\n");
     }
 }
-      
+
 /* Print the value of a single SHELL_VAR.  No newline is
    output, but the variable is printed in such a way that
    it can be read back in. */
@@ -1139,9 +1143,9 @@ init_seconds_var ()
 	seconds_value_assigned = 0;
     }
   INIT_DYNAMIC_VAR ("SECONDS", (v ? value_cell (v) : (char *)NULL), get_seconds, assign_seconds);
-  return v;      
+  return v;
 }
-     
+
 /* The random number seed.  You can change this by setting RANDOM. */
 static unsigned long rseed = 1;
 static int last_random_value;
@@ -1277,7 +1281,7 @@ get_bash_command (var)
 {
   char *p;
 
-  
+
   if (the_printed_command_except_trap)
     p = savestring (the_printed_command_except_trap);
   else
@@ -1540,7 +1544,7 @@ find_variable_internal (name, force_tempenv)
      "subshell environment". */
   search_tempenv = force_tempenv || (expanding_redir == 0 && subshell_environment);
 
-  if (search_tempenv && temporary_env)		
+  if (search_tempenv && temporary_env)
     var = hash_lookup (name, temporary_env);
 
   if (var == 0)
@@ -1928,7 +1932,7 @@ bind_variable_internal (name, value, table, hflags, aflags)
 
   return (entry);
 }
-	
+
 /* Bind a variable NAME to VALUE.  This conses up the name
    and value strings.  If we have a temporary environment, we bind there
    first, then we bind into shell_variables. */
@@ -1988,7 +1992,7 @@ bind_variable_value (var, value, aflags)
       t = (aflags & ASS_APPEND) ? make_variable_value (var, value, aflags) : value;
       (*(var->assign_func)) (var, t, -1);
       if (t != value && t)
-	free (t);      
+	free (t);
     }
   else
     {
@@ -2335,7 +2339,7 @@ unbind_func (name)
   free (elt->key);
   free (elt);
 
-  return 0;  
+  return 0;
 }
 
 int
@@ -2357,7 +2361,7 @@ unbind_function_def (name)
   free (elt->key);
   free (elt);
 
-  return 0;  
+  return 0;
 }
 
 /* Make the variable associated with NAME go away.  HASH_LIST is the
@@ -2402,7 +2406,7 @@ makunbound (name, vc)
 	FREE (value_cell (old_var));
       /* Reset the attributes.  Preserve the export attribute if the variable
          came from a temporary environment.  Make sure it stays local, and
-         make it invisible. */ 
+         make it invisible. */
       old_var->attributes = (exported_p (old_var) && tempvar_p (old_var)) ? att_exported : 0;
       VSETATTR (old_var, att_local);
       VSETATTR (old_var, att_invisible);
@@ -2815,7 +2819,7 @@ all_local_variables ()
     }
   if (vc->table == 0 || HASH_ENTRIES (vc->table) == 0 || vc_haslocals (vc) == 0)
     return (SHELL_VAR **)NULL;
-    
+
   vlist = vlist_alloc (HASH_ENTRIES (vc->table));
 
   flatten (vc->table, variable_in_context, vlist, 0);
@@ -3279,7 +3283,7 @@ maybe_make_export_env ()
         }
       else
         tcxt = shell_variables;
-      
+
       temp_array = make_var_export_array (tcxt);
       if (temp_array)
 	add_temp_array_to_env (temp_array, 0, 0);
@@ -3497,7 +3501,7 @@ delete_all_contexts (vcxt)
     {
       t = v->down;
       dispose_var_context (v);
-    }            
+    }
 
   delete_all_variables (global_variables->table);
   shell_variables = global_variables;
@@ -3734,6 +3738,9 @@ static struct name_and_function special_vars[] = {
 #  if defined (STRICT_POSIX)
   { "COLUMNS", sv_winsize },
 #  endif
+#  if defined (COMMANDER)
+  { "COMMANDER", sv_commander },
+#  endif
   { "COMP_WORDBREAKS", sv_comp_wordbreaks },
 #endif
 
@@ -3925,6 +3932,9 @@ sv_terminal (name)
 {
   if (interactive_shell && no_line_editing == 0)
     rl_reset_terminal (get_string_value ("TERM"));
+#if defined (COMMANDER)
+  cmdr_reset_terminal ();
+#endif
 }
 
 void
@@ -3972,6 +3982,25 @@ sv_winsize (name)
     }
 }
 #endif /* STRICT_POSIX */
+
+#if defined (COMMANDER)
+/* Configure commander mode and colors. */
+void
+sv_commander (name)
+     char *name;
+{
+  SHELL_VAR *v;
+
+  if (interactive_shell == 0)
+    return;
+
+  v = find_variable (name);
+  if (v)
+    cmdr_init (value_cell (v));
+  else
+    cmdr_disable ();
+}
+#endif /* COMMANDER */
 #endif /* READLINE */
 
 /* Update the value of HOME in the export environment so tilde expansion will
@@ -4246,7 +4275,7 @@ set_pipestatus_array (ps, nproc)
     }
   else
     {
-      /* deleting elements.  it's faster to rebuild the array. */	  
+      /* deleting elements.  it's faster to rebuild the array. */
       array_flush (a);
       for (i = 0; ps[i] != -1; i++)
 	{

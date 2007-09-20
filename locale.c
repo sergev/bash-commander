@@ -34,6 +34,10 @@
 #include "shell.h"
 #include "input.h"	/* For bash_input */
 
+#if defined (COMMANDER)
+#  include "commander.h"
+#endif
+
 extern int dump_translatable_strings, dump_po_strings;
 
 /* The current locale when the program begins */
@@ -226,7 +230,7 @@ set_locale_var (var, value)
 #  endif /* LC_TIME */
     }
 #endif /* HAVE_SETLOCALE */
-  
+
 
   return (0);
 }
@@ -246,7 +250,10 @@ set_lang (var, value)
       lang = (char *)xmalloc (1);
       lang[0] = '\0';
     }
-    
+#if defined (COMMANDER)
+  cmdr_reset_graphics ();
+#endif
+
   return ((lc_all == 0 || *lc_all == 0) ? reset_locale_vars () : 0);
 }
 
@@ -313,7 +320,7 @@ reset_locale_vars ()
   setlocale (LC_TIME, get_locale_var ("LC_TIME"));
 #  endif
 
-  locale_setblanks ();  
+  locale_setblanks ();
 
 #endif
   return 1;
@@ -397,7 +404,7 @@ mk_msgstr (string, foundnlp)
       else if (*s == '\n')
 	len += 5;
     }
-  
+
   r = result = (char *)xmalloc (len + 3);
   *r++ = '"';
 

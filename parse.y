@@ -70,6 +70,10 @@
 #  include "jobs.h"
 #endif /* JOB_CONTROL */
 
+#if defined (COMMANDER)
+#  include "commander.h"
+#endif /* COMMANDER */
+
 #if defined (ALIAS)
 #  include "alias.h"
 #else
@@ -803,7 +807,7 @@ arith_command:	ARITH_CMD
 
 cond_command:	COND_START COND_CMD COND_END
 			{ $$ = $2; }
-	; 
+	;
 
 elif_clause:	ELIF compound_list THEN compound_list
 			{ $$ = make_if_command ($2, $4, (COMMAND *)NULL); }
@@ -996,7 +1000,7 @@ pipeline_command: pipeline
 			  if ($2 == '\n')
 			    token_to_read = '\n';
 			}
-			
+
 	;
 
 pipeline:
@@ -1880,7 +1884,7 @@ shell_getc (remove_quoted_newline)
       sigwinch_received = 0;
       get_new_window_size (0, (int *)0, (int *)0);
     }
-      
+
   if (eol_ungetc_lookahead)
     {
       c = eol_ungetc_lookahead;
@@ -1979,6 +1983,18 @@ shell_getc (remove_quoted_newline)
       shell_input_line_len = i;		/* == strlen (shell_input_line) */
 
       set_line_mbstate ();
+
+#if defined (COMMANDER)
+      if (interactive_shell && SHOULD_PROMPT() &&
+	  no_line_editing == 0 && current_readline_line)
+	{
+	  if ((shell_input_line && shell_input_line[0]) ||
+	      shell_input_line_terminator == EOF)
+	    cmdr_activate (0);
+	  else
+	    cmdr_activate (1);
+	}
+#endif
 
 #if defined (HISTORY)
       if (remember_on_history && shell_input_line && shell_input_line[0])
@@ -3079,7 +3095,7 @@ cond_error ()
 static COND_COM *
 cond_expr ()
 {
-  return (cond_or ());  
+  return (cond_or ());
 }
 
 static COND_COM *
@@ -3269,7 +3285,7 @@ cond_term ()
       COND_RETURN_ERROR ();
     }
   return (term);
-}      
+}
 
 /* This is kind of bogus -- we slip a mini recursive-descent parser in
    here to handle the conditional statement syntax. */
@@ -3778,7 +3794,7 @@ reserved_word_acceptable (toksym)
       return 0;
     }
 }
-    
+
 /* Return the index of TOKEN in the alist of reserved words, or -1 if
    TOKEN is not a shell reserved word. */
 int
@@ -3842,7 +3858,7 @@ history_delimiting_chars ()
 
   if (dstack.delimiter_depth != 0)
     return ("\n");
-    
+
   /* First, handle some special cases. */
   /*(*/
   /* If we just read `()', assume it's a function definition, and don't
@@ -3858,7 +3874,7 @@ history_delimiting_chars ()
 	 command lists.  It's a suboptimal solution. */
       else if (parser_state & PST_CASESTMT)	/* case statement pattern */
 	return " ";
-      else	
+      else
 	return "; ";				/* (...) subshell */
     }
   else if (token_before_that == WORD && two_tokens_ago == FUNCTION)
@@ -3943,7 +3959,7 @@ set_current_prompt_level (x)
   prompt_string_pointer = (x == 2) ? &ps2_prompt : &ps1_prompt;
   current_prompt_string = *prompt_string_pointer;
 }
-      
+
 static void
 print_prompt ()
 {
@@ -3995,7 +4011,7 @@ decode_prompt_string (string)
   int result_size, result_index;
   int c, n, i;
   char *temp, octal_string[4];
-  struct tm *tm;  
+  struct tm *tm;
   time_t the_time;
   char timebuf[128];
   char *timefmt;
@@ -4129,7 +4145,7 @@ decode_prompt_string (string)
 	      else
 		temp = savestring (timebuf);
 	      goto add_string;
-	      
+
 	    case 'n':
 	      temp = (char *)xmalloc (3);
 	      temp[0] = no_line_editing ? '\n' : '\r';
@@ -4671,7 +4687,7 @@ parse_string_to_word_list (s, flags, whom)
 	}
       wl = make_word_list (yylval.word, wl);
     }
-  
+
   last_read_token = '\n';
   pop_stream ();
 
@@ -4827,7 +4843,7 @@ save_parser_state (ps)
   else
     ps->pipestatus = (ARRAY *)NULL;
 #endif
-    
+
   ps->last_shell_builtin = last_shell_builtin;
   ps->this_shell_builtin = this_shell_builtin;
 

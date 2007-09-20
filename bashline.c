@@ -65,6 +65,10 @@
 #  include "pcomplete.h"
 #endif
 
+#if defined (COMMANDER)
+#  include "commander.h"
+#endif
+
 /* These should agree with the defines for emacs_mode and vi_mode in
    rldefs.h, even though that's not a public readline header file. */
 #ifndef EMACS_EDITING_MODE
@@ -285,7 +289,7 @@ enable_hostname_completion (on_or_off)
      allocate new memory for rl_completer_word_break_characters. */
 
   if (bash_readline_initialized == 0 &&
-      (rl_completer_word_break_characters == 0 || 
+      (rl_completer_word_break_characters == 0 ||
        rl_completer_word_break_characters == rl_basic_word_break_characters))
     {
       if (on_or_off)
@@ -909,7 +913,7 @@ posix_edit_macros (count, key)
 /* **************************************************************** */
 
 #define COMMAND_SEPARATORS ";|&{(`"
-/* )} */ 
+/* )} */
 
 static int
 check_redir (ti)
@@ -1030,7 +1034,7 @@ attempt_shell_completion (text, start, end)
 	ti--;
     }
 #endif
-      
+
   in_command_position = 0;
   if (ti < 0)
     {
@@ -1063,7 +1067,7 @@ attempt_shell_completion (text, start, end)
      it can be the start or end of an old-style command substitution, or
      unmatched.  If it's unmatched, both calls to unclosed_pair will
      succeed.  */
-  if (*text == '`' && 
+  if (*text == '`' &&
 	(in_command_position || (unclosed_pair (rl_line_buffer, start, "`") &&
 				 unclosed_pair (rl_line_buffer, end, "`"))))
     matches = rl_completion_matches (text, command_subst_completion_function);
@@ -1304,7 +1308,7 @@ command_word_completion_function (hint_text, state)
 	  dequoted_hint = bash_dequote_filename (hint, 0);
 	  dequoted_len = strlen (dequoted_hint);
 	}
-      
+
       path = get_string_value ("PATH");
       path_index = dot_in_path = 0;
 
@@ -1401,7 +1405,7 @@ command_word_completion_function (hint_text, state)
       hint_is_dir = 0;	/* only return the hint text once */
       return (savestring (hint_text));
     }
-    
+
   /* Repeatedly call filename_completion_function while we have
      members of PATH left.  Question:  should we stat each file?
      Answer: we call executable_file () on each file. */
@@ -2319,7 +2323,7 @@ bash_directory_expansion (dirname)
       *dirname = nd;
     }
 }
-  
+
 /* Handle symbolic link references and other directory name
    expansions while hacking completion. */
 static int
@@ -2354,7 +2358,7 @@ bash_directory_completion_hook (dirname)
 #endif
     should_expand_dirname = 0;
 
-  if (should_expand_dirname)  
+  if (should_expand_dirname)
     {
       new_dirname = savestring (local_dirname);
       wl = expand_prompt_string (new_dirname, 0);	/* does the right thing */
@@ -2378,7 +2382,7 @@ bash_directory_completion_hook (dirname)
 	  return 1;
 	}
     }
-  else 
+  else
     {
       /* Dequote the filename even if we don't expand it. */
       new_dirname = bash_dequote_filename (local_dirname, rl_completion_quote_character);
@@ -2726,7 +2730,7 @@ bash_glob_complete_word (count, key)
     rl_explicit_arg = 1;	/* force `*' append */
   orig_quoting_function = rl_filename_quoting_function;
   rl_filename_quoting_function = bash_glob_quote_filename;
-  
+
   r = bash_glob_completion_internal (rl_completion_mode (bash_glob_complete_word));
 
   rl_filename_quoting_function = orig_quoting_function;
@@ -2803,7 +2807,7 @@ bash_vi_complete (count, key)
       p = r;
 
       t = substring (rl_line_buffer, p, rl_point);
-    }      
+    }
 
   if (t && glob_pattern_p (t) == 0)
     rl_explicit_arg = 1;	/* XXX - force glob_complete_word to append `*' */
@@ -3083,7 +3087,7 @@ isolate_sequence (string, ind, need_dquote, startp)
   /* We can have delimited strings even if NEED_DQUOTE == 0, like the command
      string to bind the key sequence to. */
   delim = (string[i] == '"' || string[i] == '\'') ? string[i] : 0;
-    
+
   if (startp)
     *startp = delim ? ++i : i;
 
@@ -3156,7 +3160,7 @@ bind_keyseq_to_unix_command (line)
   /* and bind the key sequence in the current keymap to a function that
      understands how to execute from CMD_XMAP */
   rl_bind_keyseq_in_map (kseq, bash_execute_unix_command, kmap);
-  
+
   return 0;
 }
 
@@ -3171,7 +3175,7 @@ bash_directory_completion_matches (text)
   char *dfn;
   int qc;
 
-  qc = rl_dispatching ? rl_completion_quote_character : 0;  
+  qc = rl_dispatching ? rl_completion_quote_character : 0;
   dfn = bash_dequote_filename ((char *)text, qc);
   m1 = rl_completion_matches (dfn, rl_filename_completion_function);
   free (dfn);
