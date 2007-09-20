@@ -52,6 +52,10 @@
 #  include "bashhist.h"
 #endif
 
+#if defined (COMMANDER)
+#  include "commander.h"
+#endif
+
 extern int last_command_exit_value;
 extern int last_command_exit_signal;
 extern int return_catch_flag;
@@ -391,6 +395,10 @@ throw_to_top_level ()
   if (interactive)
     bashline_reinitialize ();
 #endif /* READLINE */
+
+#if defined (COMMANDER)
+  cmdr_activate (-1);
+#endif
 
 #if defined (PROCESS_SUBSTITUTION)
   unlink_fifo_list ();
