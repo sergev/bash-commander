@@ -1218,7 +1218,7 @@ cmdr_cursor_up (count, key)
 
   cmdr_draw_cursor (dir);
   cmdr_term_goto (cmdr_lines - 2 - _rl_vis_botlin + _rl_last_v_pos,
-    _rl_last_c_pos);
+    _rl_cursor_col());
   return 0;
 }
 
@@ -1246,7 +1246,7 @@ cmdr_cursor_down (count, key)
 
   cmdr_draw_cursor (dir);
   cmdr_term_goto (cmdr_lines - 2 - _rl_vis_botlin + _rl_last_v_pos,
-    _rl_last_c_pos);
+    _rl_cursor_col());
   return 0;
 }
 
@@ -1275,7 +1275,7 @@ cmdr_cursor_left (count, key)
 
   cmdr_draw_cursor (dir);
   cmdr_term_goto (cmdr_lines - 2 - _rl_vis_botlin + _rl_last_v_pos,
-    _rl_last_c_pos);
+    _rl_cursor_col());
   return 0;
 }
 
@@ -1301,7 +1301,7 @@ cmdr_cursor_right (count, key)
 
   cmdr_draw_cursor (dir);
   cmdr_term_goto (cmdr_lines - 2 - _rl_vis_botlin + _rl_last_v_pos,
-    _rl_last_c_pos);
+    _rl_cursor_col());
   return 0;
 }
 
@@ -1325,7 +1325,7 @@ cmdr_cursor_home (count, key)
 
   cmdr_draw_cursor (dir);
   cmdr_term_goto (cmdr_lines - 2 - _rl_vis_botlin + _rl_last_v_pos,
-    _rl_last_c_pos);
+    _rl_cursor_col());
   return 0;
 }
 
@@ -1352,7 +1352,7 @@ cmdr_cursor_end (count, key)
 
   cmdr_draw_cursor (dir);
   cmdr_term_goto (cmdr_lines - 2 - _rl_vis_botlin + _rl_last_v_pos,
-    _rl_last_c_pos);
+    _rl_cursor_col());
   return 0;
 }
 
@@ -1385,7 +1385,7 @@ cmdr_cursor_pgup (count, key)
 
   cmdr_draw_cursor (dir);
   cmdr_term_goto (cmdr_lines - 2 - _rl_vis_botlin + _rl_last_v_pos,
-    _rl_last_c_pos);
+    _rl_cursor_col());
   return 0;
 }
 
@@ -1417,7 +1417,7 @@ cmdr_cursor_pgdn (count, key)
 
   cmdr_draw_cursor (dir);
   cmdr_term_goto (cmdr_lines - 2 - _rl_vis_botlin + _rl_last_v_pos,
-    _rl_last_c_pos);
+    _rl_cursor_col());
   return 0;
 }
 
