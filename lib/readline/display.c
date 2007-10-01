@@ -86,7 +86,7 @@ static int inv_lbsize, vis_lbsize;
    invisible characters. */
 #define PROMPT_ENDING_INDEX \
   ((MB_CUR_MAX > 1 && rl_byte_oriented == 0) ? prompt_physical_chars : prompt_last_invisible+1)
-  
+
 
 /* **************************************************************** */
 /*								    */
@@ -221,7 +221,7 @@ static int saved_physical_chars;
 	\002 (^B) end non-visible characters
    all characters except \001 and \002 (following a \001) are copied to
    the returned string; all characters except those between \001 and
-   \002 are assumed to be `visible'. */	
+   \002 are assumed to be `visible'. */
 
 static char *
 expand_prompt (pmt, lp, lip, niflp, vlp)
@@ -451,7 +451,7 @@ init_line_structures (minsize)
       inv_lbreaks[0] = vis_lbreaks[0] = 0;
     }
 }
-  
+
 /* Basic redisplay algorithm. */
 void
 rl_redisplay ()
@@ -570,7 +570,7 @@ rl_redisplay ()
 	  } \
       } while (0)
 
-#if defined (HANDLE_MULTIBYTE)	  
+#if defined (HANDLE_MULTIBYTE)
 #define CHECK_LPOS() \
       do { \
 	lpos++; \
@@ -661,7 +661,7 @@ rl_redisplay ()
       temp += ((local_prompt_prefix == 0) ? ((newlines == 0) ? prompt_invis_chars_first_line
 							     : ((newlines == 1) ? wrap_offset : 0))
 					  : ((newlines == 0) ? wrap_offset :0));
-             
+
       inv_lbreaks[++newlines] = temp;
 #if defined (HANDLE_MULTIBYTE)
       if (MB_CUR_MAX > 1 && rl_byte_oriented == 0)
@@ -933,7 +933,7 @@ rl_redisplay ()
 		  _rl_last_c_pos > wrap_offset &&
 		  o_cpos < prompt_last_invisible)
 		_rl_last_c_pos -= wrap_offset;
-		  
+
 	      /* If this is the line with the prompt, we might need to
 		 compensate for invisible characters in the new line. Do
 		 this only if there is not more than one new line (which
@@ -1280,7 +1280,7 @@ update_line (old, new, current_line, omax, nmax, inv_botlin)
 	}
     }
 
-      
+
   /* Find first difference. */
 #if defined (HANDLE_MULTIBYTE)
   if (MB_CUR_MAX > 1 && rl_byte_oriented == 0)
@@ -1294,7 +1294,7 @@ update_line (old, new, current_line, omax, nmax, inv_botlin)
 	  nfd = new + temp;
 	}
       else
-	{      
+	{
 	  memset (&ps_new, 0, sizeof(mbstate_t));
 	  memset (&ps_old, 0, sizeof(mbstate_t));
 
@@ -1605,7 +1605,7 @@ update_line (old, new, current_line, omax, nmax, inv_botlin)
 	    col_lendiff = lendiff;
 
 	  if (col_lendiff)
-	    {	  
+	    {
 	      if (_rl_term_autowrap && current_line < inv_botlin)
 		space_to_eol (col_lendiff);
 	      else
@@ -1975,7 +1975,7 @@ rl_message (format, arg1, arg2)
   local_prompt_prefix = (char *)NULL;
   local_prompt_len = local_prompt ? strlen (local_prompt) : 0;
   (*rl_redisplay_function) ();
-      
+
   return 0;
 }
 #endif /* !USE_VARARGS */
@@ -2075,7 +2075,7 @@ _rl_make_prompt_for_search (pchar)
 	strcpy (pmt, p);
       pmt[len] = pchar;
       pmt[len+1] = '\0';
-    }  
+    }
 
   /* will be overwritten by expand_prompt, called from rl_message */
   prompt_physical_chars = saved_physical_chars + 1;
@@ -2279,7 +2279,7 @@ redraw_prompt (t)
   rl_display_prompt = oldp;
   rl_restore_prompt();
 }
-      
+
 /* Redisplay the current line after a SIGWINCH is received. */
 void
 _rl_redisplay_after_sigwinch ()
@@ -2449,3 +2449,12 @@ _rl_col_width (str, start, end)
   return width;
 }
 #endif /* HANDLE_MULTIBYTE */
+
+/* For Bash Commander: return the current cursor column number. */
+int
+_rl_cursor_col ()
+{
+  if ((MB_CUR_MAX == 1 || rl_byte_oriented) && _rl_last_v_pos == 0)
+    return _rl_last_c_pos - visible_wrap_offset;
+  return _rl_last_c_pos;
+}
