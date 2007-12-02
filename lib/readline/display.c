@@ -2454,7 +2454,7 @@ _rl_col_width (str, start, end)
 int
 _rl_cursor_col ()
 {
-  if ((MB_CUR_MAX == 1 || rl_byte_oriented) && _rl_last_v_pos == 0)
+  if ((MB_CUR_MAX == 1 || rl_byte_oriented) && _rl_last_v_pos == 0 && visible_wrap_offset > 0)
     return _rl_last_c_pos - visible_wrap_offset;
   return _rl_last_c_pos;
 }

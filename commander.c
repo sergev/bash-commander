@@ -716,7 +716,7 @@ DIRINFO *cmdr_read_directory (path, olddir, oldcur)
 	  ++dir->nregular;
 	  dir->bytes += fi->st.st_size;
 	}
-      if (access (filepath, X_OK) >= 0)
+      if ((fi->st.st_mode & 0111) && access (filepath, X_OK) >= 0)
 	fi->executable = 1;
 
       switch (fi->st.st_mode & S_IFMT)
@@ -1631,11 +1631,19 @@ cmdr_next_panel (count, key)
 {
   char *newwd;
 
-  if (! cmdr_visual_mode && rl_end != 0)
+  if (! cmdr_visual_mode)
     {
-      /* Line mode: <Tab> pressed on nonempty command line.
-       * Call the original bash function. */
-      return cmdr_original_tab_func (count, key);
+      /* Line mode: <Tab> pressed. */
+      if (rl_end != 0)
+	{
+	  /* Line mode: <Tab> pressed on nonempty command line.
+	   * Call the original bash function. */
+	  return cmdr_original_tab_func (count, key);
+	}
+
+      /* Current directory probably changed -- reread it. */
+      cmdr_panel[cmdr_current_panel] = cmdr_read_directory (0,
+				       cmdr_panel[cmdr_current_panel], 0);
     }
 
   /* Switch panels. */
@@ -1650,7 +1658,7 @@ cmdr_next_panel (count, key)
 
   if (! cmdr_visual_mode)
     {
-      /* Line mode: <Tab> pressed on nonempty command line.
+      /* Line mode: <Tab> pressed on empty command line.
        * Switch to next panel and enable visual mode. */
       rl_execute_next (CTRL('M'));
       return 0;
@@ -1840,7 +1848,7 @@ cmdr_clear_screen (count, key)
 }
 
 /*
- * Toggle displaying of hidden filed (dot names).
+ * Toggle displaying of hidden files (dot names).
  */
 int
 cmdr_toggle_hidden (count, key)
