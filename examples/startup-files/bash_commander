@@ -9,21 +9,25 @@ else
 fi
 declare -x DIALOGRC=$HOME/.bash_dialog
 
-function commander_start_file () {
-	# Start file
+function commander_start_file () {		# Start file
+	if [[ "$1" =~ '^[a-zA-Z0-9_./,:@+-]*$' ]]; then
+		f="$1"
+	else
+		f="'$1'"
+	fi
 	case "$1" in
-	*.c)		COMMANDER_LINE="$EDITOR '$1'" ;;
-	*.h)		COMMANDER_LINE="$EDITOR '$1'" ;;
-	*.cpp)		COMMANDER_LINE="$EDITOR '$1'" ;;
-	*.tar)		COMMANDER_LINE="tar tvf '$1' | less" ;;
-	*.tar.Z)	COMMANDER_LINE="tar tvzf '$1' | less" ;;
-	*.tar.gz)	COMMANDER_LINE="tar tvzf '$1' | less" ;;
-	*.tgz)		COMMANDER_LINE="tar tvzf '$1' | less" ;;
-	*.tar.bz2)	COMMANDER_LINE="tar tvjf '$1' | less" ;;
-	*.zip)		COMMANDER_LINE="unzip -l '$1' | less" ;;
-	*.rar)		COMMANDER_LINE="unrar vb '$1' | less" ;;
+	*.c)		COMMANDER_LINE="$EDITOR $f" ;;
+	*.h)		COMMANDER_LINE="$EDITOR $f" ;;
+	*.cpp)		COMMANDER_LINE="$EDITOR $f" ;;
+	*.tar)		COMMANDER_LINE="tar tvf $f | less" ;;
+	*.tar.Z)	COMMANDER_LINE="tar tvzf $f | less" ;;
+	*.tar.gz)	COMMANDER_LINE="tar tvzf $f | less" ;;
+	*.tgz)		COMMANDER_LINE="tar tvzf $f | less" ;;
+	*.tar.bz2)	COMMANDER_LINE="tar tvjf $f | less" ;;
+	*.zip)		COMMANDER_LINE="unzip -l $f | less" ;;
+	*.rar)		COMMANDER_LINE="unrar vb $f | less" ;;
 	*)		if [ -f "$1" -a -x "$1" ]; then
-				COMMANDER_LINE="./'$1'"
+				COMMANDER_LINE="./$f"
 				# Switch to line mode
 				return 0
 			fi ;;
@@ -147,7 +151,7 @@ function commander_f5 () {			# Copy file(s)
 				esac
 			fi
 			dialog --infobox "Copying $f\nto $value/" 0 0
-			cp -a -f "$f" "$value"
+			cp -p -R -f "$f" "$value"
 		done
 		return 1			# Re-read a directory
 	fi
@@ -177,7 +181,7 @@ function commander_f5 () {			# Copy file(s)
 		fi
 	fi
 	dialog --infobox "Copying $f\nto $value" 0 0
-	cp -a -f "$f" "$value"
+	cp -p -R -f "$f" "$value"
 	return 1				# Re-read a directory
 }
 
@@ -205,19 +209,17 @@ function commander_f6 () {			# Move file(s)
 		fi
 		all=0
 		for f; do
-			if [ -e "$value/$f" ]; then
-				if [ $all != 1 ]; then
-					# Target already exists, ask user for overwrite
-					dialog --title " Move " --ok-label "Overwrite" \
-						--extra-button --extra-label "All" \
-						--no-label "Cancel" \
-						--yesno "File exists: $value/$f" 0 0
-					case $? in
-					0) ;;		# Overwrite
-					3) all=1 ;;	# Overwrite All
-					*) return 0 ;;	# Cancel
-					esac
-				fi
+			if [ $all != 1 -a -e "$value/$f" ]; then
+				# Target already exists, ask user for overwrite
+				dialog --title " Move " --ok-label "Overwrite" \
+					--extra-button --extra-label "All" \
+					--no-label "Cancel" \
+					--yesno "File exists: $value/$f" 0 0
+				case $? in
+				0) ;;		# Overwrite
+				3) all=1 ;;	# Overwrite All
+				*) return 0 ;;	# Cancel
+				esac
 			fi
 			dialog --infobox "Moving $f\nto $value/" 0 0
 			rm -rf "$value/$f"
@@ -265,7 +267,6 @@ function commander_f7 () {			# Make directory
 	if [ $retval != 0 ]; then
 		return 0
 	fi
-
 	mkdir -p "$value"
 	return 1				# Re-read a directory
 }
