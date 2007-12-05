@@ -2199,23 +2199,26 @@ cmdr_activate (active)
 	  cmdr_set_visual_mode (1);
 	}
     }
-  else if (cmdr_visual_mode)
+  else
     {
-      /* Return to line mode.
-       * Some command was executed, so we need to refresh panels. */
+      /* Some command was executed, so we need to refresh panels. */
       if (cmdr_panel[0])
 	cmdr_panel[0]->refresh = 1;
       if (cmdr_panel[1])
 	cmdr_panel[1]->refresh = 1;
 
-      cmdr_set_visual_mode (0);
-      fputs (cmdr_term_clear, rl_outstream);
+      if (cmdr_visual_mode)
+	{
+	  /* Return to line mode. */
+	  cmdr_set_visual_mode (0);
+	  fputs (cmdr_term_clear, rl_outstream);
 
-      /* Move to screen bottom. */
-      cmdr_term_goto (cmdr_lines - _rl_vis_botlin - 2, 0);
-      rl_forced_update_display ();
-      if (active >= 0)
-  	rl_crlf();
+	  /* Move to screen bottom. */
+	  cmdr_term_goto (cmdr_lines - _rl_vis_botlin - 2, 0);
+	  rl_forced_update_display ();
+	  if (active >= 0)
+	    rl_crlf();
+	}
     }
 
   fflush (stderr);
