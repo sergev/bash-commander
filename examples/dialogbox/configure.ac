@@ -19,4 +19,5 @@ AC_PROG_CC
 AC_C_CONST
 
 # Checks for library functions.
+AC_CHECK_FUNCS(getopt_long)
 AC_OUTPUT
