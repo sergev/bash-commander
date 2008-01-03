@@ -783,11 +783,13 @@ reset_job_indices ()
   if (jobs[js.j_firstj] == 0)
     {
       old = js.j_firstj++;
+      if (old >= js.j_jobslots)
+	old = js.j_jobslots - 1;
       while (js.j_firstj != old)
 	{
 	  if (js.j_firstj >= js.j_jobslots)
 	    js.j_firstj = 0;
-	  if (jobs[js.j_firstj])
+	  if (jobs[js.j_firstj] || js.j_firstj == old)	/* needed if old == 0 */
 	    break;
 	  js.j_firstj++;
 	}
@@ -797,11 +799,13 @@ reset_job_indices ()
   if (jobs[js.j_lastj] == 0)
     {
       old = js.j_lastj--;
+      if (old < 0)
+	old = 0;
       while (js.j_lastj != old)
 	{
 	  if (js.j_lastj < 0)
 	    js.j_lastj = js.j_jobslots - 1;
-	  if (jobs[js.j_lastj])
+	  if (jobs[js.j_lastj] || js.j_lastj == old)	/* needed if old == js.j_jobslots */
 	    break;
 	  js.j_lastj--;
 	}
@@ -963,7 +967,11 @@ compact_jobs_list (flags)
   reap_dead_jobs ();
   realloc_jobs_list ();
 
-  return (js.j_lastj);
+#ifdef DEBUG
+  itrace("compact_jobs_list: returning %d", (js.j_lastj || jobs[js.j_lastj]) ? js.j_lastj + 1 : 0);
+#endif
+
+  return ((js.j_lastj || jobs[js.j_lastj]) ? js.j_lastj + 1 : 0);
 }
 
 /* Delete the job at INDEX from the job list.  Must be called
@@ -984,8 +992,6 @@ delete_job (job_index, dflags)
   temp = jobs[job_index];
   if (temp == 0)
     return;
-  if (job_index == js.j_current || job_index == js.j_previous)
-    reset_current ();
 
   if ((dflags & DEL_NOBGPID) == 0)
     {
@@ -1028,6 +1034,9 @@ delete_job (job_index, dflags)
     js.j_firstj = js.j_lastj = 0;
   else if (jobs[js.j_firstj] == 0 || jobs[js.j_lastj] == 0)
     reset_job_indices ();
+
+  if (job_index == js.j_current || job_index == js.j_previous)
+    reset_current ();
 }
 
 /* Must be called with SIGCHLD blocked. */
