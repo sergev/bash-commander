@@ -286,6 +286,8 @@ expr_unwind ()
       free (expr_stack[expr_depth]);
     }
   free (expr_stack[expr_depth]);	/* free the allocated EXPR_CONTEXT */
+
+  noeval = 0;	/* XXX */
 }
 
 static void
@@ -319,6 +321,7 @@ evalexp (expr, validp)
   procenv_t oevalbuf;
 
   val = 0;
+  noeval = 0;
 
   FASTCOPY (evalbuf, oevalbuf, sizeof (evalbuf));
 
@@ -929,6 +932,7 @@ expr_streval (tok, e)
       if (interactive_shell)
 	{
 	  expr_unwind ();
+	  top_level_cleanup ();
 	  jump_to_top_level (DISCARD);
 	}
       else
