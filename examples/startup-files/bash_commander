@@ -7,7 +7,7 @@ else
 	COMMANDER='no=\33[m:nr=\33[0;37;43m:bo=\33[1;37m:br=\33[1;37;43m:di=\33[0;36m'
 	PS1="\[\033[44m\](\h) \W\[\033[m\033[1m\] \\\$\[\033[m\] "
 fi
-declare -x DIALOGRC=$HOME/.bash_dialog
+declare -x DIALOGRC=/usr/local/etc/bash_dialog
 
 function commander_start_file () {		# Start file
 	if [[ "$1" =~ '^[a-zA-Z0-9_./,:@+-]*$' ]]; then
@@ -37,7 +37,7 @@ function commander_start_file () {		# Start file
 }
 
 function commander_f1 () {			# Help
-	dialog --title " Help " --aspect 4 --cr-wrap --msgbox "\
+	dialog --title " Help " --cr-wrap --msgbox "\
 Cursor Movement                   Delete\n\
    Char left        ^B               Char left        ^H or <BS>\n\
    Char right       ^F               Under cursor     ^D or <Del>\n\
@@ -74,7 +74,7 @@ function commander_f2 () {			# Change directory
 		args[7]=""
 	fi
 	n=8
-	for d in /mnt/* /media/* /Volume/*; do
+	for d in /mnt/* /media/* /Volumes/*; do
 		case "$d" in
 		*\*)
 			;;
