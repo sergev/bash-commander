@@ -638,18 +638,28 @@ DIRINFO *cmdr_read_directory (path, olddir, oldcur)
   DIR *dirfd;
   struct dirent *de;
   FILEINFO *fi;
-  char filepath [PATH_MAX+1];
+  char filepath [PATH_MAX+1], *home;
   int panel_height, i;
 
   dir = (DIRINFO*)xmalloc (sizeof (DIRINFO) + sizeof (FILEINFO*) * 100);
   memset (dir, 0, sizeof (DIRINFO));
   dir->nallocated = 100;
 
-  if (path)
-    strcpy (dir->path, path);
-  else
-    getcwd (dir->path, sizeof (dir->path));
+  home = get_string_value ("HOME");
+  if (! home)
+    home = "/";
 
+  if (path)
+    {
+      if (access (path, R_OK) < 0)
+	path = home;
+      strcpy (dir->path, path);
+    }
+  else if (! getcwd (dir->path, sizeof (dir->path)))
+    {
+      chdir (home);
+      strcpy (dir->path, home);
+    }
   stat (dir->path, &dir->st);
 
   dirfd = opendir (dir->path);
@@ -663,8 +673,8 @@ DIRINFO *cmdr_read_directory (path, olddir, oldcur)
       cmdr_term_goto (cmdr_lines - _rl_vis_botlin - 2, 0);
 
       /* Print error and jump to bash command loop. */
-      free (dir);
       fprintf (rl_outstream, "%s: %s\r\n", dir->path, strerror (err));
+      free (dir);
       jump_to_top_level (DISCARD);
     }
 
@@ -1770,6 +1780,40 @@ nothing_to_run:
 }
 
 /*
+ * Size of terminal window changed -- redraw panels.
+ */
+void
+cmdr_set_lines_and_columns (lines, cols)
+     int lines, cols;
+{
+  if (! cmdr_visual_mode)
+    return;
+  if (cmdr_lines == lines && cmdr_columns == cols)
+    return;
+
+  cmdr_lines = lines;
+  cmdr_columns = cols;
+  if (cmdr_lines < 6 || cmdr_lines > 500 ||
+      cmdr_columns < 50 || cmdr_columns > 1000)
+    {
+      /* Too small window, use line mode. */
+      cmdr_visual_mode = 0;
+      rl_set_keymap (cmdr_line_keymap);
+      fputs (cmdr_term_clear, rl_outstream);
+      rl_forced_update_display ();
+      return;
+    }
+
+  /* Reinit on window resize. */
+  if (cmdr_panel[1])
+    cmdr_panel[1]->base_column = cmdr_columns / 2;
+  fputs (cmdr_term_clear, rl_outstream);
+  cmdr_draw_panels();
+  cmdr_term_goto (cmdr_lines - _rl_vis_botlin - 2, 0);
+  rl_forced_update_display ();
+}
+
+/*
  * Set visual mode.
  */
 void
@@ -1779,7 +1823,6 @@ cmdr_set_visual_mode (enable_visual)
   if (enable_visual)
     {
       /* Enable visual mode. */
-      /* TODO: Reinit on window resize. */
       rl_get_screen_size (&cmdr_lines, &cmdr_columns);
       if (cmdr_lines < 6 || cmdr_lines > 500 ||
 	  cmdr_columns < 50 || cmdr_columns > 1000)
@@ -1787,6 +1830,9 @@ cmdr_set_visual_mode (enable_visual)
       cmdr_visual_mode = 1;
       rl_set_keymap (cmdr_visual_keymap);
 
+      /* Reinit on window resize. */
+      if (cmdr_panel[1])
+        cmdr_panel[1]->base_column = cmdr_columns / 2;
       fputs (cmdr_term_clear, rl_outstream);
       cmdr_draw_panels();
 

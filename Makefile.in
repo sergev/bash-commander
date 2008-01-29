@@ -717,19 +717,22 @@ tags:	$(SOURCES) $(BUILTIN_C_SRC) $(LIBRARY_SOURCE)
 
 installdirs:
 	@${SHELL} $(SUPPORT_SRC)mkinstalldirs $(DESTDIR)$(bindir)
-	@${SHELL} $(SUPPORT_SRC)mkinstalldirs $(DESTDIR)$(man1dir)
-	@${SHELL} $(SUPPORT_SRC)mkinstalldirs $(DESTDIR)$(infodir)
-	-( cd $(PO_DIR) ; $(MAKE) $(MFLAGS) DESTDIR=$(DESTDIR) $@ )
+#	@${SHELL} $(SUPPORT_SRC)mkinstalldirs $(DESTDIR)$(man1dir)
+#	@${SHELL} $(SUPPORT_SRC)mkinstalldirs $(DESTDIR)$(infodir)
+	@${SHELL} $(SUPPORT_SRC)mkinstalldirs $(DESTDIR)$(prefix)/etc
+#	-( cd $(PO_DIR) ; $(MAKE) $(MFLAGS) DESTDIR=$(DESTDIR) $@ )
 
 install:	.made installdirs
 	$(INSTALL_PROGRAM) $(INSTALLMODE) $(Program) $(DESTDIR)$(bindir)/$(Program)
-	$(INSTALL_SCRIPT) $(INSTALLMODE2) bashbug $(DESTDIR)$(bindir)/bashbug
-	-( cd $(DOCDIR) ; $(MAKE) $(MFLAGS) \
-		man1dir=$(man1dir) man1ext=$(man1ext) \
-		man3dir=$(man3dir) man3ext=$(man3ext) \
-		infodir=$(infodir) htmldir=$(htmldir) DESTDIR=$(DESTDIR) $@ )
-	-( cd $(DEFDIR) ; $(MAKE) $(MFLAGS) DESTDIR=$(DESTDIR) $@ )
-	-( cd $(PO_DIR) ; $(MAKE) $(MFLAGS) DESTDIR=$(DESTDIR) $@ )
+	$(INSTALL_SCRIPT) -m 0644 examples/startup-files/bash_commander $(DESTDIR)$(prefix)/etc/bash_commander
+	$(INSTALL_SCRIPT) -m 0644 examples/startup-files/bash_dialog $(DESTDIR)$(prefix)/etc/bash_dialog
+#	$(INSTALL_SCRIPT) $(INSTALLMODE2) bashbug $(DESTDIR)$(bindir)/bashbug
+#	-( cd $(DOCDIR) ; $(MAKE) $(MFLAGS) \
+#		man1dir=$(man1dir) man1ext=$(man1ext) \
+#		man3dir=$(man3dir) man3ext=$(man3ext) \
+#		infodir=$(infodir) htmldir=$(htmldir) DESTDIR=$(DESTDIR) $@ )
+#	-( cd $(DEFDIR) ; $(MAKE) $(MFLAGS) DESTDIR=$(DESTDIR) $@ )
+#	-( cd $(PO_DIR) ; $(MAKE) $(MFLAGS) DESTDIR=$(DESTDIR) $@ )
 
 install-strip:
 	$(MAKE) $(MFLAGS) INSTALL_PROGRAM='$(INSTALL_PROGRAM) -s' \
@@ -737,12 +740,15 @@ install-strip:
 		DESTDIR=$(DESTDIR) install
 
 uninstall:	.made
-	$(RM) $(DESTDIR)$(bindir)/$(Program) $(DESTDIR)$(bindir)/bashbug
-	-( cd $(DOCDIR) ; $(MAKE) $(MFLAGS) \
-		man1dir=$(man1dir) man1ext=$(man1ext) \
-		man3dir=$(man3dir) man3ext=$(man3ext) \
-		infodir=$(infodir) htmldir=$(htmldir) DESTDIR=$(DESTDIR) $@ )
-	-( cd $(PO_DIR) ; $(MAKE) $(MFLAGS) DESTDIR=$(DESTDIR) $@ )
+	$(RM) $(DESTDIR)$(bindir)/$(Program)
+#	$(RM) $(DESTDIR)$(bindir)/bashbug
+	$(RM) $(DESTDIR)$(prefix)/etc/bash_commander
+	$(RM) $(DESTDIR)$(prefix)/etc/bash_dialog
+#	-( cd $(DOCDIR) ; $(MAKE) $(MFLAGS) \
+#		man1dir=$(man1dir) man1ext=$(man1ext) \
+#		man3dir=$(man3dir) man3ext=$(man3ext) \
+#		infodir=$(infodir) htmldir=$(htmldir) DESTDIR=$(DESTDIR) $@ )
+#	-( cd $(PO_DIR) ; $(MAKE) $(MFLAGS) DESTDIR=$(DESTDIR) $@ )
 
 .PHONY: basic-clean clean realclean maintainer-clean distclean mostlyclean maybe-clean
 

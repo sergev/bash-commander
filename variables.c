@@ -874,6 +874,9 @@ sh_set_lines_and_columns (lines, cols)
   /* If we are currently assigning to LINES or COLUMNS, don't do anything. */
   if (winsize_assignment)
     return;
+#if defined (COMMANDER)
+  cmdr_set_lines_and_columns (lines, cols);
+#endif
 #endif
 
   v = inttostr (lines, val, sizeof (val));
