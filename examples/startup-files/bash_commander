@@ -16,9 +16,9 @@ function commander_start_file () {		# Start file
 		f="'$1'"
 	fi
 	case "$1" in
-	*.c)		COMMANDER_LINE="$EDITOR $f" ;;
-	*.h)		COMMANDER_LINE="$EDITOR $f" ;;
-	*.cpp)		COMMANDER_LINE="$EDITOR $f" ;;
+	*.c)		COMMANDER_LINE="${EDITOR:-vi} $f" ;;
+	*.h)		COMMANDER_LINE="${EDITOR:-vi} $f" ;;
+	*.cpp)		COMMANDER_LINE="${EDITOR:-vi} $f" ;;
 	*.tar)		COMMANDER_LINE="tar tvf $f | less" ;;
 	*.tar.Z)	COMMANDER_LINE="tar tvzf $f | less" ;;
 	*.tar.gz)	COMMANDER_LINE="tar tvzf $f | less" ;;
@@ -37,7 +37,7 @@ function commander_start_file () {		# Start file
 }
 
 function commander_f1 () {			# Help
-	dialog --title " Help " --cr-wrap --msgbox "\
+	${DIALOG:-dialog} --title " Help " --cr-wrap --msgbox "\
 Cursor Movement                   Delete\n\
    Char left        ^B               Char left        ^H or <BS>\n\
    Char right       ^F               Under cursor     ^D or <Del>\n\
@@ -86,7 +86,7 @@ function commander_f2 () {			# Change directory
 	done
 
 	exec 3>&1
-	value=`dialog --title " Change directory " --menu \
+	value=`${DIALOG:-dialog} --title " Change directory " --menu \
 	"Select directory:" 0 0 5 "${args[@]}" 2>&1 1>&3`
 	retval=$?
 	exec 3>&-
@@ -101,14 +101,14 @@ function commander_f2 () {			# Change directory
 
 function commander_f3 () {			# View current file
 	if [ -f "$1" -a -r "$1" ]; then
-		$EDITOR --read-only "$1"
+		${VIEWER:-vi -R} "$1"
 	fi
 	return 0
 }
 
 function commander_f4 () {			# Edit current file
 	if [ -f "$1" -a -w "$1"  ]; then
-		$EDITOR "$1"
+		${EDITOR:-vi} "$1"
 		return 1			# Re-read a directory
 	fi
 	return 0
@@ -123,7 +123,7 @@ function commander_f5 () {			# Copy file(s)
 		n="$#"
 
 		exec 3>&1
-		value=`dialog --title " Copy " --inputbox \
+		value=`${DIALOG:-dialog} --title " Copy " --inputbox \
 			"Copy $n files to:" 0 0 "$d2" 2>&1 1>&3`
 		retval=$?
 		exec 3>&-
@@ -132,7 +132,7 @@ function commander_f5 () {			# Copy file(s)
 		fi
 		# Check if the target already exists
 		if [ ! -d "$value" ]; then
-			dialog --title " Error " --ok-label "Copying aborted"\
+			${DIALOG:-dialog} --title " Error " --ok-label "Copying aborted"\
 				--msgbox "$value - nonexistent directory"
 			return 0
 		fi
@@ -140,7 +140,7 @@ function commander_f5 () {			# Copy file(s)
 		for f; do
 			if [ $all != 1 -a -e "$value/$f" ]; then
 				# Target already exists, ask user for overwrite
-				dialog --title " Copy " --ok-label "Overwrite" \
+				${DIALOG:-dialog} --title " Copy " --ok-label "Overwrite" \
 					--extra-button --extra-label "All" \
 					--no-label "Cancel" \
 					--yesno "File exists: $value/$f" 0 0
@@ -150,7 +150,7 @@ function commander_f5 () {			# Copy file(s)
 				*) return 0 ;;	# Cancel
 				esac
 			fi
-			dialog --infobox "Copying $f\nto $value/" 0 0
+			${DIALOG:-dialog} --infobox "Copying $f\nto $value/" 0 0
 			cp -p -R -f "$f" "$value"
 		done
 		return 1			# Re-read a directory
@@ -158,7 +158,7 @@ function commander_f5 () {			# Copy file(s)
 
 	# Single file or directory
 	exec 3>&1
-	value=`dialog --title " Copy " --inputbox \
+	value=`${DIALOG:-dialog} --title " Copy " --inputbox \
 		"Copy file $f to:" 0 0 "$d2/$f" 2>&1 1>&3`
 	retval=$?
 	exec 3>&-
@@ -174,13 +174,13 @@ function commander_f5 () {			# Copy file(s)
 	fi
 	if [ -e "$target" ]; then
 		# Target already exists, ask user for overwrite
-		dialog --title " Copy " --yes-label "Overwrite" \
+		${DIALOG:-dialog} --title " Copy " --yes-label "Overwrite" \
 			--no-label "Cancel" --yesno "File exists: $target" 0 0
 		if [ $? != 0 ]; then
 			return 0
 		fi
 	fi
-	dialog --infobox "Copying $f\nto $value" 0 0
+	${DIALOG:-dialog} --infobox "Copying $f\nto $value" 0 0
 	cp -p -R -f "$f" "$value"
 	return 1				# Re-read a directory
 }
@@ -194,7 +194,7 @@ function commander_f6 () {			# Move file(s)
 		n="$#"
 
 		exec 3>&1
-		value=`dialog --title " Move " --inputbox \
+		value=`${DIALOG:-dialog} --title " Move " --inputbox \
 			"Rename or move $n files to:" 0 0 "$d2" 2>&1 1>&3`
 		retval=$?
 		exec 3>&-
@@ -203,7 +203,7 @@ function commander_f6 () {			# Move file(s)
 		fi
 		# Check if the target already exists
 		if [ ! -d "$value" ]; then
-			dialog --title " Error " --ok-label "Renaming aborted"\
+			${DIALOG:-dialog} --title " Error " --ok-label "Renaming aborted"\
 				--msgbox "$value - nonexistent directory"
 			return 0
 		fi
@@ -211,7 +211,7 @@ function commander_f6 () {			# Move file(s)
 		for f; do
 			if [ $all != 1 -a -e "$value/$f" ]; then
 				# Target already exists, ask user for overwrite
-				dialog --title " Move " --ok-label "Overwrite" \
+				${DIALOG:-dialog} --title " Move " --ok-label "Overwrite" \
 					--extra-button --extra-label "All" \
 					--no-label "Cancel" \
 					--yesno "File exists: $value/$f" 0 0
@@ -221,7 +221,7 @@ function commander_f6 () {			# Move file(s)
 				*) return 0 ;;	# Cancel
 				esac
 			fi
-			dialog --infobox "Moving $f\nto $value/" 0 0
+			${DIALOG:-dialog} --infobox "Moving $f\nto $value/" 0 0
 			rm -rf "$value/$f"
 			mv -f "$f" "$value"
 		done
@@ -230,7 +230,7 @@ function commander_f6 () {			# Move file(s)
 
 	# Single file or directory
 	exec 3>&1
-	value=`dialog --title " Move " --inputbox \
+	value=`${DIALOG:-dialog} --title " Move " --inputbox \
 		"Rename or move file $f to:" 0 0 "$d2/$f" 2>&1 1>&3`
 	retval=$?
 	exec 3>&-
@@ -246,13 +246,13 @@ function commander_f6 () {			# Move file(s)
 	fi
 	if [ -e "$target" ]; then
 		# Target already exists, ask user for overwrite
-		dialog --title " Move " --yes-label "Overwrite" \
+		${DIALOG:-dialog} --title " Move " --yes-label "Overwrite" \
 			--no-label "Cancel" --yesno "File exists: $target" 0 0
 		if [ $? != 0 ]; then
 			return 0
 		fi
 	fi
-	dialog --infobox "Moving $f\nto $value" 0 0
+	${DIALOG:-dialog} --infobox "Moving $f\nto $value" 0 0
 	rm -rf "$target"
 	mv -f "$f" "$value"
 	return 1				# Re-read a directory
@@ -260,7 +260,7 @@ function commander_f6 () {			# Move file(s)
 
 function commander_f7 () {			# Make directory
 	exec 3>&1
-	value=`dialog --title " Make directory " --inputbox \
+	value=`${DIALOG:-dialog} --title " Make directory " --inputbox \
 		"Create the directory:" 0 0 "" 2>&1 1>&3`
 	retval=$?
 	exec 3>&-
@@ -278,24 +278,24 @@ function commander_f8 () {			# Delete file(s)
 	if [ $# -gt 0 ]; then
 		# Several tagged files/dirs
 		n="$#"
-		dialog --title " Delete " --yes-label "Delete" \
+		${DIALOG:-dialog} --title " Delete " --yes-label "Delete" \
 			--no-label "Cancel" \
 			--yesno "Do you wish to delete $n files?" 0 0
 		if [ $? != 0 ]; then
 			return 0
 		fi
-		dialog --infobox "Deleting $n files" 0 0
+		${DIALOG:-dialog} --infobox "Deleting $n files" 0 0
 		rm -rf "$@"
 		return 1			# Re-read a directory
 	fi
 
 	# Single file or directory
-	dialog --title " Delete " --yes-label "Delete" --no-label "Cancel" \
+	${DIALOG:-dialog} --title " Delete " --yes-label "Delete" --no-label "Cancel" \
 		--yesno "Do you wish to delete: $f" 0 0
 	if [ $? != 0 ]; then
 		return 0
 	fi
-	dialog --infobox "Deleting $f" 0 0
+	${DIALOG:-dialog} --infobox "Deleting $f" 0 0
 	rm -rf "$f"
 	return 1				# Re-read a directory
 }
