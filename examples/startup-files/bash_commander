@@ -10,7 +10,7 @@ fi
 declare -x DIALOGRC=/usr/local/etc/bash_dialog
 
 function commander_start_file () {		# Start file
-	if [[ "$1" =~ '^[a-zA-Z0-9_./,:@+-]*$' ]]; then
+	if [[ `expr "$1" : '[a-zA-Z0-9_./,:@+-]*$'` != "0" ]]; then
 		f="$1"
 	else
 		f="'$1'"
