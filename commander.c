@@ -1976,6 +1976,23 @@ copy_keymap (map)
 }
 
 /*
+ * Get termcap entry. Strip delay sequences $<...>.
+ */
+static char *
+get_termcap (char *entry)
+{
+  char *value, *p;
+
+  value = rl_get_termcap (entry);
+  if (! value)
+    return 0;
+  p = strchr (value, '$');
+  if (p)
+    *p = 0;
+  return value;
+}
+
+/*
  * Read terminal description data.
  */
 void
@@ -1985,44 +2002,44 @@ cmdr_reset_terminal ()
   if (! cmdr_line_keymap)
     return;
 
-  cmdr_term_cm = rl_get_termcap ("cm");
-  cmdr_term_ku = rl_get_termcap ("ku");
-  cmdr_term_kd = rl_get_termcap ("kd");
-  cmdr_term_kr = rl_get_termcap ("kr");
-  cmdr_term_kl = rl_get_termcap ("kl");
-  cmdr_term_kh = rl_get_termcap ("kh");
-  cmdr_term_at7 = rl_get_termcap ("@7");
-  cmdr_term_kP = rl_get_termcap ("kP");
-  cmdr_term_kN = rl_get_termcap ("kN");
-  cmdr_term_kI = rl_get_termcap ("kI");
-  cmdr_term_clear = rl_get_termcap ("cl");
-  cmdr_term_clreol = rl_get_termcap ("ce");
-  cmdr_term_ac = rl_get_termcap ("ac");
-  cmdr_term_as = rl_get_termcap ("as");
-  cmdr_term_ae = rl_get_termcap ("ae");
-  cmdr_term_me = rl_get_termcap ("me");
-  cmdr_term_mr = rl_get_termcap ("mr");
-  cmdr_term_md = rl_get_termcap ("md");
-  cmdr_term_kf1 = rl_get_termcap ("k1");
-  cmdr_term_kf2 = rl_get_termcap ("k2");
-  cmdr_term_kf3 = rl_get_termcap ("k3");
-  cmdr_term_kf4 = rl_get_termcap ("k4");
-  cmdr_term_kf5 = rl_get_termcap ("k5");
-  cmdr_term_kf6 = rl_get_termcap ("k6");
-  cmdr_term_kf7 = rl_get_termcap ("k7");
-  cmdr_term_kf8 = rl_get_termcap ("k8");
-  cmdr_term_kf9 = rl_get_termcap ("k9");
-  cmdr_term_kf10 = rl_get_termcap ("k;");
-  cmdr_term_kf11 = rl_get_termcap ("F1");
-  cmdr_term_kf12 = rl_get_termcap ("F2");
-  cmdr_term_kf13 = rl_get_termcap ("F3");
-  cmdr_term_kf14 = rl_get_termcap ("F4");
-  cmdr_term_kf15 = rl_get_termcap ("F5");
-  cmdr_term_kf16 = rl_get_termcap ("F6");
-  cmdr_term_kf17 = rl_get_termcap ("F7");
-  cmdr_term_kf18 = rl_get_termcap ("F8");
-  cmdr_term_kf19 = rl_get_termcap ("F9");
-  cmdr_term_kf20 = rl_get_termcap ("FA");
+  cmdr_term_cm = get_termcap ("cm");
+  cmdr_term_ku = get_termcap ("ku");
+  cmdr_term_kd = get_termcap ("kd");
+  cmdr_term_kr = get_termcap ("kr");
+  cmdr_term_kl = get_termcap ("kl");
+  cmdr_term_kh = get_termcap ("kh");
+  cmdr_term_at7 = get_termcap ("@7");
+  cmdr_term_kP = get_termcap ("kP");
+  cmdr_term_kN = get_termcap ("kN");
+  cmdr_term_kI = get_termcap ("kI");
+  cmdr_term_clear = get_termcap ("cl");
+  cmdr_term_clreol = get_termcap ("ce");
+  cmdr_term_ac = get_termcap ("ac");
+  cmdr_term_as = get_termcap ("as");
+  cmdr_term_ae = get_termcap ("ae");
+  cmdr_term_me = get_termcap ("me");
+  cmdr_term_mr = get_termcap ("mr");
+  cmdr_term_md = get_termcap ("md");
+  cmdr_term_kf1 = get_termcap ("k1");
+  cmdr_term_kf2 = get_termcap ("k2");
+  cmdr_term_kf3 = get_termcap ("k3");
+  cmdr_term_kf4 = get_termcap ("k4");
+  cmdr_term_kf5 = get_termcap ("k5");
+  cmdr_term_kf6 = get_termcap ("k6");
+  cmdr_term_kf7 = get_termcap ("k7");
+  cmdr_term_kf8 = get_termcap ("k8");
+  cmdr_term_kf9 = get_termcap ("k9");
+  cmdr_term_kf10 = get_termcap ("k;");
+  cmdr_term_kf11 = get_termcap ("F1");
+  cmdr_term_kf12 = get_termcap ("F2");
+  cmdr_term_kf13 = get_termcap ("F3");
+  cmdr_term_kf14 = get_termcap ("F4");
+  cmdr_term_kf15 = get_termcap ("F5");
+  cmdr_term_kf16 = get_termcap ("F6");
+  cmdr_term_kf17 = get_termcap ("F7");
+  cmdr_term_kf18 = get_termcap ("F8");
+  cmdr_term_kf19 = get_termcap ("F9");
+  cmdr_term_kf20 = get_termcap ("FA");
   cmdr_reset_graphics ();
 
   /* Page Up, Page Down, F1-F20 in line mode - ignore. */
