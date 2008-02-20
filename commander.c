@@ -698,7 +698,9 @@ DIRINFO *cmdr_read_directory (path, olddir, oldcur)
 
       /* Get stat information. */
       strcpy (filepath, dir->path);
-      strcat (filepath, "/");
+      i = strlen (filepath);
+      if (i > 0 && filepath[i-1] != '/')
+        strcat (filepath, "/");
       strcat (filepath, de->d_name);
       if (lstat (filepath, &fi->st) < 0)
 	{
