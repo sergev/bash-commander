@@ -2814,9 +2814,10 @@ expand_string_assignment (string, quoted)
    passed string when an error occurs.  Might want to trap other calls
    to jump_to_top_level here so we don't endlessly loop. */
 WORD_LIST *
-expand_prompt_string (string, quoted)
+expand_prompt_string (string, quoted, wflags)
      char *string;
      int quoted;
+     int wflags;
 {
   WORD_LIST *value;
   WORD_DESC td;
@@ -2824,7 +2825,7 @@ expand_prompt_string (string, quoted)
   if (string == 0 || *string == 0)
     return ((WORD_LIST *)NULL);
 
-  td.flags = 0;
+  td.flags = wflags;
   td.word = savestring (string);
 
   no_longjmp_on_fatal_error = 1;
@@ -4622,7 +4623,8 @@ command_substitute (string, quoted)
 #if defined (JOB_CONTROL)
   set_sigchld_handler ();
   stop_making_children ();
-  pipeline_pgrp = old_pipeline_pgrp;
+  if (pid != 0)
+    pipeline_pgrp = old_pipeline_pgrp;
 #else
   stop_making_children ();
 #endif /* JOB_CONTROL */
