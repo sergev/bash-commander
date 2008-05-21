@@ -92,106 +92,106 @@ void cmdr_set_visual_mode __P((int enable_visual));
 /*
  * Count a number of characters in multibyte string.
  */
-static int
+	static int
 mbstrlen (str)
-    const char *str;
+	const char *str;
 {
-  int mbytes, chars;
+	int mbytes, chars;
 
-  chars = 0;
-  for (;;)
-    {
-      mbytes = mblen (str, MB_CUR_MAX);
-      if (mbytes <= 0)
-	break;
-      str += mbytes;
-      ++chars;
-    }
-  return chars;
+	chars = 0;
+	for (;;)
+	{
+		mbytes = mblen (str, MB_CUR_MAX);
+		if (mbytes <= 0)
+			break;
+		str += mbytes;
+		++chars;
+	}
+	return chars;
 }
 
 /*
  * Parse parameter string up to ':', unescaping characters.
  * Return an allocated copy.
  */
-static char *
+	static char *
 parse_string (strp)
-    char **strp;
+	char **strp;
 {
-  char *copy, *p;
+	char *copy, *p;
 
-  p = strchr (*strp, ':');
-  if (p)
-    copy = xmalloc (p - *strp + 1);
-  else
-    copy = xmalloc (strlen (*strp) + 1);
+	p = strchr (*strp, ':');
+	if (p)
+		copy = xmalloc (p - *strp + 1);
+	else
+		copy = xmalloc (strlen (*strp) + 1);
 
-  for (p=copy; **strp && **strp != ':'; ++*strp)
-    {
-      if (**strp == '\\')
+	for (p=copy; **strp && **strp != ':'; ++*strp)
 	{
-	  ++*strp;
-	  switch (**strp)
-	    {
-	    case '0': case '1': case '2': case '3':
-	    case '4': case '5': case '6': case '7':
-	      /* Octal sequence */
-	      *p = **strp - '0';
-	      if ((*strp)[1] >= '0' && (*strp)[1] <= '7')
+		if (**strp == '\\')
 		{
-		  ++*strp;
-		  *p = (*p << 3) + **strp - '0';
-		  if ((*strp)[1] >= '0' && (*strp)[1] <= '7')
-		    {
-		      ++*strp;
-		      *p = (*p << 3) + **strp - '0';
-		    }
+			++*strp;
+			switch (**strp)
+			{
+				case '0': case '1': case '2': case '3':
+				case '4': case '5': case '6': case '7':
+					/* Octal sequence */
+					*p = **strp - '0';
+					if ((*strp)[1] >= '0' && (*strp)[1] <= '7')
+					{
+						++*strp;
+						*p = (*p << 3) + **strp - '0';
+						if ((*strp)[1] >= '0' && (*strp)[1] <= '7')
+						{
+							++*strp;
+							*p = (*p << 3) + **strp - '0';
+						}
+					}
+					++p;
+					break;
+				case 'a':		/* Bell */
+					*p++ = '\a';
+					break;
+				case 'b':		/* Backspace */
+					*p++ = '\b';
+					break;
+				case 'e':		/* Escape */
+					*p++ = 27;
+					break;
+				case 'f':		/* Form feed */
+					*p++ = '\f';
+					break;
+				case 'n':		/* Newline */
+					*p++ = '\n';
+					break;
+				case 'r':		/* Carriage return */
+					*p++ = '\r';
+					break;
+				case 't':		/* Tab */
+					*p++ = '\t';
+					break;
+				case 'v':		/* Vtab */
+					*p++ = '\v';
+					break;
+				case '?':		/* Delete */
+					*p++ = 127;
+					break;
+				case '_':		/* Space */
+					*p++ = ' ';
+					break;
+				case '\0':		/* End of string */
+					--*strp;
+					break;
+				default:		/* Escaped character like \ ^ : = */
+					*p++ = **strp;
+					break;
+			}
 		}
-	      ++p;
-	      break;
-	    case 'a':		/* Bell */
-	      *p++ = '\a';
-	      break;
-	    case 'b':		/* Backspace */
-	      *p++ = '\b';
-	      break;
-	    case 'e':		/* Escape */
-	      *p++ = 27;
-	      break;
-	    case 'f':		/* Form feed */
-	      *p++ = '\f';
-	      break;
-	    case 'n':		/* Newline */
-	      *p++ = '\n';
-	      break;
-	    case 'r':		/* Carriage return */
-	      *p++ = '\r';
-	      break;
-	    case 't':		/* Tab */
-	      *p++ = '\t';
-	      break;
-	    case 'v':		/* Vtab */
-	      *p++ = '\v';
-	      break;
-	    case '?':		/* Delete */
-              *p++ = 127;
-	      break;
-	    case '_':		/* Space */
-	      *p++ = ' ';
-	      break;
-	    case '\0':		/* End of string */
-	      --*strp;
-	      break;
-	    default:		/* Escaped character like \ ^ : = */
-	      *p++ = **strp;
-	      break;
-	    }
+		else
+			*p++ = **strp;
 	}
-      else
-	*p++ = **strp;
-    }
-  *p = 0;
-  return copy;
+	*p = 0;
+	return copy;
 }
 
 /*
@@ -211,161 +211,161 @@ parse_string (strp)
  * Recommended for black background:
  *    no=\33[m:nr=\33[0;37;43m:bo=\33[1;37m:br=\33[1;37;43m:di=\33[0;36m
  */
-static void
+	static void
 parse_colors (char *param)
 {
-  int label;
-  char *next;
+	int label;
+	char *next;
 
-  /* Default normal = termcap "me". */
-  if (cmdr_color_normal)
-    free (cmdr_color_normal);
-  cmdr_color_normal = strdup (cmdr_term_me ? cmdr_term_me : "");
-
-  /* Default reverse = termcap "mr". */
-  if (cmdr_color_reverse)
-    free (cmdr_color_reverse);
-  cmdr_color_reverse = strdup (cmdr_term_mr ? cmdr_term_mr : "");
-
-  /* Default bold = termcap "md". */
-  if (cmdr_color_bold)
-    free (cmdr_color_bold);
-  cmdr_color_bold = strdup (cmdr_term_md ? cmdr_term_md : "");
-
-  /* Default bold reverse = termcap "md"+"mr". */
-  if (cmdr_color_bold_reverse)
-    free (cmdr_color_bold_reverse);
-  cmdr_color_bold_reverse = xmalloc (strlen (cmdr_color_bold) +
-				     strlen (cmdr_color_reverse) + 1);
-  strcpy (cmdr_color_bold_reverse, cmdr_color_bold);
-  strcat (cmdr_color_bold_reverse, cmdr_color_reverse);
-
-  /* Default dim is empty. */
-  if (cmdr_color_dim)
-    free (cmdr_color_dim);
-  cmdr_color_dim = strdup ("");
-
-  /* Parse parameter string. */
-  label = 0;
-  while (*param)
-    {
-      if (*param == ':')
-	{
-	  label = 0;
-	  ++param;
-	}
-      else if (! label)
-	{
-	  /* First label character. */
-	  label = (unsigned char) *param++;
-	}
-      else if (label < 256)
-	{
-	  /* Second label character. */
-	  label |= (unsigned char) *param++ << 8;
-	}
-      else
-	{
-	  /* Equal sign after label. */
-	  if (*param++ == '=')
-	    switch (label)
-	      {
-	      case 'n'|'o'<<8:
+	/* Default normal = termcap "me". */
+	if (cmdr_color_normal)
 		free (cmdr_color_normal);
-		cmdr_color_normal = parse_string (&param);
-		break;
-	      case 'n'|'r'<<8:
+	cmdr_color_normal = strdup (cmdr_term_me ? cmdr_term_me : "");
+
+	/* Default reverse = termcap "mr". */
+	if (cmdr_color_reverse)
 		free (cmdr_color_reverse);
-		cmdr_color_reverse = parse_string (&param);
-		break;
-	      case 'b'|'o'<<8:
+	cmdr_color_reverse = strdup (cmdr_term_mr ? cmdr_term_mr : "");
+
+	/* Default bold = termcap "md". */
+	if (cmdr_color_bold)
 		free (cmdr_color_bold);
-		cmdr_color_bold = parse_string (&param);
-		break;
-	      case 'b'|'r'<<8:
+	cmdr_color_bold = strdup (cmdr_term_md ? cmdr_term_md : "");
+
+	/* Default bold reverse = termcap "md"+"mr". */
+	if (cmdr_color_bold_reverse)
 		free (cmdr_color_bold_reverse);
-		cmdr_color_bold_reverse = parse_string (&param);
-		break;
-	      case 'd'|'i'<<8:
+	cmdr_color_bold_reverse = xmalloc (strlen (cmdr_color_bold) +
+			strlen (cmdr_color_reverse) + 1);
+	strcpy (cmdr_color_bold_reverse, cmdr_color_bold);
+	strcat (cmdr_color_bold_reverse, cmdr_color_reverse);
+
+	/* Default dim is empty. */
+	if (cmdr_color_dim)
 		free (cmdr_color_dim);
-		cmdr_color_dim = parse_string (&param);
-		break;
-	      }
-	  else
-	    {
-	      /* Incorrect syntax. */
-	      next = strchr (param, ':');
-	      param = next ? next : param + strlen (param);
-	    }
-	  label = 0;
+	cmdr_color_dim = strdup ("");
+
+	/* Parse parameter string. */
+	label = 0;
+	while (*param)
+	{
+		if (*param == ':')
+		{
+			label = 0;
+			++param;
+		}
+		else if (! label)
+		{
+			/* First label character. */
+			label = (unsigned char) *param++;
+		}
+		else if (label < 256)
+		{
+			/* Second label character. */
+			label |= (unsigned char) *param++ << 8;
+		}
+		else
+		{
+			/* Equal sign after label. */
+			if (*param++ == '=')
+				switch (label)
+				{
+					case 'n'|'o'<<8:
+						free (cmdr_color_normal);
+						cmdr_color_normal = parse_string (&param);
+						break;
+					case 'n'|'r'<<8:
+						free (cmdr_color_reverse);
+						cmdr_color_reverse = parse_string (&param);
+						break;
+					case 'b'|'o'<<8:
+						free (cmdr_color_bold);
+						cmdr_color_bold = parse_string (&param);
+						break;
+					case 'b'|'r'<<8:
+						free (cmdr_color_bold_reverse);
+						cmdr_color_bold_reverse = parse_string (&param);
+						break;
+					case 'd'|'i'<<8:
+						free (cmdr_color_dim);
+						cmdr_color_dim = parse_string (&param);
+						break;
+				}
+			else
+			{
+				/* Incorrect syntax. */
+				next = strchr (param, ':');
+				param = next ? next : param + strlen (param);
+			}
+			label = 0;
+		}
 	}
-    }
 }
 
 /*
  * Move cursor to given line and column.
  */
-void
+	void
 cmdr_term_goto (line, col)
-    int line, col;
+	int line, col;
 {
-  char *str;
+	char *str;
 
-  str = tgoto (cmdr_term_cm, col, line);
-  if (str)
-    fputs (str, rl_outstream);
+	str = tgoto (cmdr_term_cm, col, line);
+	if (str)
+		fputs (str, rl_outstream);
 }
 
 /*
  * Enable or disable graphics mode of terminal.
  * No action in UTF-8 mode.
  */
-void
+	void
 cmdr_term_graphics (enable)
-    int enable;
+	int enable;
 {
-  char *str;
+	char *str;
 
-  if (cmdr_term_utf8)
-    return;
-  str = enable ? cmdr_term_as : cmdr_term_ae;
-  if (str)
-    fputs (str, rl_outstream);
+	if (cmdr_term_utf8)
+		return;
+	str = enable ? cmdr_term_as : cmdr_term_ae;
+	if (str)
+		fputs (str, rl_outstream);
 }
 
 /*
  * Display a horizontal graphics line of given length.
  * A terminal must be in graphics mode.
  */
-void
+	void
 cmdr_hor_line (len)
-    int len;
+	int len;
 {
-  int i;
+	int i;
 
-  for (i=0; i<len; ++i)
-    {
-      if (cmdr_term_utf8)
+	for (i=0; i<len; ++i)
 	{
-	  putc (0xe2, rl_outstream);
-	  putc (0x94, rl_outstream);
+		if (cmdr_term_utf8)
+		{
+			putc (0xe2, rl_outstream);
+			putc (0x94, rl_outstream);
+		}
+		putc (cmdr_term_horline, rl_outstream);
 	}
-      putc (cmdr_term_horline, rl_outstream);
-    }
 }
 
 /*
  * Display a vertical graphics line of length 1.
  * A terminal must be in graphics mode.
  */
-void
+	void
 cmdr_vert_line ()
 {
-  if (cmdr_term_utf8)
-    {
-      putc (0xe2, rl_outstream);
-      putc (0x94, rl_outstream);
-    }
+	if (cmdr_term_utf8)
+	{
+		putc (0xe2, rl_outstream);
+		putc (0x94, rl_outstream);
+	}
   putc (cmdr_term_vertline, rl_outstream);
 }
 
@@ -482,144 +482,144 @@ cmdr_compare_files (arg1, arg2)
   FILEINFO *b = *(FILEINFO**) arg2;
   int alevel, blevel;
 
-  /* Compare file types. */
-  alevel = compare_file_level (a);
-  blevel = compare_file_level (b);
-  if (alevel != blevel)
-	  return alevel - blevel;
+	/* Compare file types. */
+	alevel = compare_file_level (a);
+	blevel = compare_file_level (b);
+	if (alevel != blevel)
+		return alevel - blevel;
 
-  /* Hidden files first. */
-  alevel = (a->name[0] != '.');
-  blevel = (b->name[0] != '.');
-  if (alevel != blevel)
-	  return alevel - blevel;
+	/* Hidden files first. */
+	alevel = (a->name[0] != '.');
+	blevel = (b->name[0] != '.');
+	if (alevel != blevel)
+		return alevel - blevel;
 
-  if (! S_ISDIR (a->st.st_mode))
-    {
-      /* Files by extension. */
-      char *aext, *bext;
-      int cmp;
-
-      aext = strrchr (a->name + 1, '.');
-      bext = strrchr (b->name + 1, '.');
-      if (aext)
+	if (! S_ISDIR (a->st.st_mode))
 	{
-	  if (! bext)
-	    return 1;
-	  cmp = strcmp (aext, bext);
-	  if (cmp)
-	    return cmp;
-	}
-      else if (bext)
-	return -1;
-    }
+		/* Files by extension. */
+		char *aext, *bext;
+		int cmp;
 
-  /* Files or directories by name. */
-  return strcmp (a->name, b->name);
+		aext = strrchr (a->name + 1, '.');
+		bext = strrchr (b->name + 1, '.');
+		if (aext)
+		{
+			if (! bext)
+				return 1;
+			cmp = strcmp (aext, bext);
+			if (cmp)
+				return cmp;
+		}
+		else if (bext)
+			return -1;
+	}
+
+	/* Files or directories by name. */
+	return strcmp (a->name, b->name);
 }
 
-void
+	void
 cmdr_free_directory (dir)
-    DIRINFO *dir;
+	DIRINFO *dir;
 {
-  int i;
+	int i;
 
-  for (i=0; i<dir->nfiles; ++i)
-    free (dir->tab [i]);
-  free (dir);
+	for (i=0; i<dir->nfiles; ++i)
+		free (dir->tab [i]);
+	free (dir);
 }
 
 /*
  * Set top file by dev and inode number.
  */
-void
+	void
 cmdr_restore_top (dir, st)
-    DIRINFO *dir;
-    struct stat *st;
+	DIRINFO *dir;
+	struct stat *st;
 {
-  int i;
+	int i;
 
-  for (i=0; i<dir->nfiles; ++i)
-    if (dir->tab[i]->st.st_dev == st->st_dev &&
-	dir->tab[i]->st.st_ino == st->st_ino)
-      {
-	dir->top = dir->current = i;
-	break;
-      }
+	for (i=0; i<dir->nfiles; ++i)
+		if (dir->tab[i]->st.st_dev == st->st_dev &&
+				dir->tab[i]->st.st_ino == st->st_ino)
+		{
+			dir->top = dir->current = i;
+			break;
+		}
 }
 
 /*
  * Set current file by dev and inode number.
  */
-void
+	void
 cmdr_restore_current (dir, st)
-    DIRINFO *dir;
-    struct stat *st;
+	DIRINFO *dir;
+	struct stat *st;
 {
-  int i;
+	int i;
 
-  for (i=0; i<dir->nfiles; ++i)
-    if (dir->tab[i]->st.st_dev == st->st_dev &&
-	dir->tab[i]->st.st_ino == st->st_ino)
-      {
-	dir->current = i;
-	break;
-      }
+	for (i=0; i<dir->nfiles; ++i)
+		if (dir->tab[i]->st.st_dev == st->st_dev &&
+				dir->tab[i]->st.st_ino == st->st_ino)
+		{
+			dir->current = i;
+			break;
+		}
 }
 
 /*
  * Restore file tags.
  */
-void
+	void
 cmdr_restore_tagged (dir, olddir)
-    DIRINFO *dir, *olddir;
+	DIRINFO *dir, *olddir;
 {
-  FILEINFO **fip;
-  int i;
+	FILEINFO **fip;
+	int i;
 
-  for (i=0; i<olddir->nfiles; ++i)
-    if (olddir->tab[i]->tagged)
-      {
-	fip = (FILEINFO**) bsearch (&olddir->tab[i], dir->tab, dir->nfiles,
-		       sizeof(FILEINFO*), cmdr_compare_files);
-	if (fip && ! (*fip)->tagged)
-	  {
-	    (*fip)->tagged = 1;
-	    ++dir->ntagged;
-	    if (S_ISREG ((*fip)->st.st_mode))
-	      dir->tagged_bytes += (*fip)->st.st_size;
-	  }
-      }
+	for (i=0; i<olddir->nfiles; ++i)
+		if (olddir->tab[i]->tagged)
+		{
+			fip = (FILEINFO**) bsearch (&olddir->tab[i], dir->tab, dir->nfiles,
+					sizeof(FILEINFO*), cmdr_compare_files);
+			if (fip && ! (*fip)->tagged)
+			{
+				(*fip)->tagged = 1;
+				++dir->ntagged;
+				if (S_ISREG ((*fip)->st.st_mode))
+					dir->tagged_bytes += (*fip)->st.st_size;
+			}
+		}
 }
 
 /*
  * When all files have mode rwxrwxrwx, then probably this is
  * a mounted DOS volume. Clear executable flag.
  */
-void
+	void
 cmdr_fix_dos_volume (dir)
-    DIRINFO *dir;
+	DIRINFO *dir;
 {
-  int i, mode;
+	int i, mode;
 
-  /* Skip dotdot. */
-  for (i=1; i<dir->nfiles; ++i)
-    {
-      /* Files on a DOS volume have modes 777 or 700. */
-      mode = dir->tab[i]->st.st_mode & 0777;
-      if (mode != 0777 && mode != 0700)
+	/* Skip dotdot. */
+	for (i=1; i<dir->nfiles; ++i)
 	{
-	return;
+		/* Files on a DOS volume have modes 777 or 700. */
+		mode = dir->tab[i]->st.st_mode & 0777;
+		if (mode != 0777 && mode != 0700)
+		{
+			return;
+		}
 	}
-    }
 
-  /* DOS volume - clear executable flag. */
-  for (i=1; i<dir->nfiles; ++i)
-    if (S_ISREG (dir->tab[i]->st.st_mode))
-      {
-	dir->tab[i]->executable = 0;
-	dir->tab[i]->type = ' ';
-      }
+	/* DOS volume - clear executable flag. */
+	for (i=1; i<dir->nfiles; ++i)
+		if (S_ISREG (dir->tab[i]->st.st_mode))
+		{
+			dir->tab[i]->executable = 0;
+			dir->tab[i]->type = ' ';
+		}
 }
 
 /*
@@ -630,15 +630,15 @@ cmdr_fix_dos_volume (dir)
  * Deallocate olddir after use.
  */
 DIRINFO *cmdr_read_directory (path, olddir, oldcur)
-    char *path;
-    DIRINFO *olddir;
-    struct stat *oldcur;
+	char *path;
+	DIRINFO *olddir;
+	struct stat *oldcur;
 {
-  DIRINFO *dir;
-  DIR *dirfd;
-  struct dirent *de;
-  FILEINFO *fi;
-  char filepath [PATH_MAX+1], *home;
+	DIRINFO *dir;
+	DIR *dirfd;
+	struct dirent *de;
+	FILEINFO *fi;
+	char filepath [PATH_MAX+1], *home;
   int panel_height, i;
 
   dir = (DIRINFO*)xmalloc (sizeof (DIRINFO) + sizeof (FILEINFO*) * 100);
@@ -1815,6 +1815,12 @@ cmdr_set_lines_and_columns (lines, cols)
   rl_forced_update_display ();
 }
 
+int 
+cmdr_get_lines ()
+{
+	return cmdr_lines;
+}
+
 /*
  * Set visual mode.
  */
@@ -2141,6 +2147,9 @@ cmdr_init (params)
    * ^L - switch to line mode and clear screen
    * Insert, ^T - tag/untag current file
    * ^X-a - toggle displaying of hidden files */
+
+	/* This reworked so that it would work in Vi mode 
+	 *  see ./lib/readline/find.c */
   rl_bind_key_in_map (CTRL('J'), cmdr_insert_filename, cmdr_visual_keymap);
   rl_bind_key_in_map (CTRL('L'), cmdr_clear_screen, cmdr_visual_keymap);
   rl_bind_key_in_map (CTRL('T'), cmdr_tag_file, cmdr_visual_keymap);

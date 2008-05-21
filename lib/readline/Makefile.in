@@ -82,7 +82,7 @@ CSOURCES = $(srcdir)/readline.c $(srcdir)/funmap.c $(srcdir)/keymaps.c \
 	   $(srcdir)/histfile.c $(srcdir)/nls.c $(srcdir)/search.c \
 	   $(srcdir)/shell.c $(srcdir)/tilde.c $(srcdir)/savestring.c \
 	   $(srcdir)/text.c $(srcdir)/misc.c $(srcdir)/compat.c \
-	   $(srcdir)/mbutil.c
+ 	   $(srcdir)/mbutil.c $(srcdir)/find.c
 
 # The header files for this library.
 HSOURCES = readline.h rldefs.h chardefs.h keymaps.h history.h histlib.h \
@@ -96,7 +96,8 @@ TILDEOBJ = tilde.o
 OBJECTS = readline.o vi_mode.o funmap.o keymaps.o parens.o search.o \
 	  rltty.o complete.o bind.o isearch.o display.o signals.o \
 	  util.o kill.o undo.o macro.o input.o callback.o terminal.o \
-	  text.o nls.o misc.o $(HISTOBJ) $(TILDEOBJ) xmalloc.o compat.o
+	  text.o nls.o misc.o $(HISTOBJ) $(TILDEOBJ) xmalloc.o compat.o \
+		find.o
 
 # The texinfo files which document this library.
 DOCSOURCE = doc/rlman.texinfo doc/rltech.texinfo doc/rluser.texinfo
@@ -180,6 +181,8 @@ display.o: rldefs.h ${BUILD_DIR}/config.h rlconf.h
 display.o: tcap.h
 display.o: readline.h keymaps.h rltypedefs.h chardefs.h tilde.h
 display.o: history.h rlstdc.h
+find.o: xmalloc.h 
+find.o: readline.h keymaps.h rltypedefs.h 
 funmap.o: readline.h keymaps.h rltypedefs.h chardefs.h tilde.h
 funmap.o: rlconf.h ansi_stdlib.h rlstdc.h
 funmap.o: ${BUILD_DIR}/config.h
