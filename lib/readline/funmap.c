@@ -120,6 +120,7 @@ static FUNMAP default_funmap[] = {
   { "re-read-init-file", rl_re_read_init_file },
   { "redraw-current-line", rl_refresh_line},
   { "reverse-search-history", rl_reverse_search_history },
+  { "graphical-search-history", rl_find },
   { "revert-line", rl_revert_line },
   { "self-insert", rl_insert },
   { "set-mark", rl_set_mark },

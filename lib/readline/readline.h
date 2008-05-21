@@ -179,6 +179,9 @@ extern int rl_paste_from_clipboard PARAMS((int, int));
 extern int rl_reverse_search_history PARAMS((int, int));
 extern int rl_forward_search_history PARAMS((int, int));
 
+/* Bindable commands for graphical searching */
+extern int rl_find PARAMS((int, int));
+
 /* Bindable keyboard macro commands. */
 extern int rl_start_kbd_macro PARAMS((int, int));
 extern int rl_end_kbd_macro PARAMS((int, int));

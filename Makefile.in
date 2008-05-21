@@ -248,7 +248,8 @@ READLINE_SOURCE	= $(RL_LIBSRC)/rldefs.h $(RL_LIBSRC)/rlconf.h \
 		  $(RL_LIBSRC)/shell.c $(RL_LIBSRC)/savestring.c \
 		  $(RL_LIBSRC)/misc.c $(RL_LIBSRC)/mbutil.c $(RL_LIBSRC)/compat.c \
 		  $(RL_LIBSRC)/histexpand.c $(RL_LIBSRC)/history.c \
-		  $(RL_LIBSRC)/histsearch.c $(RL_LIBSRC)/histfile.c
+		  $(RL_LIBSRC)/histsearch.c $(RL_LIBSRC)/histfile.c \
+			$(RL_LIBSRC)/find.c 
 
 READLINE_OBJ	= $(RL_LIBDIR)/readline.o $(RL_LIBDIR)/funmap.o \
 		  $(RL_LIBDIR)/parens.o $(RL_LIBDIR)/search.o \
@@ -263,7 +264,9 @@ READLINE_OBJ	= $(RL_LIBDIR)/readline.o $(RL_LIBDIR)/funmap.o \
 		  $(RL_LIBDIR)/shell.o $(RL_LIBDIR)/savestring.o \
 		  $(RL_LIBDIR)/mbutil.o $(RL_LIBDIR)/compat.o \
 		  $(RL_LIBDIR)/history.o $(RL_LIBDIR)/histexpand.o \
-		  $(RL_LIBDIR)/histsearch.o $(RL_LIBDIR)/histfile.o
+		  $(RL_LIBDIR)/histsearch.o $(RL_LIBDIR)/histfile.o \
+			$(RL_LIBDIR)/find.o
+
 
 HIST_LIBSRC = $(LIBSRC)/readline
 HIST_LIBDIR = @HIST_LIBDIR@
