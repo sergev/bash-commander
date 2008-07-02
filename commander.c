@@ -443,14 +443,17 @@ static int
 compare_file_level (fi)
     FILEINFO *fi;
 {
+  char *name;
+
   switch (fi->st.st_mode & S_IFMT)
     {
     case S_IFDIR:
-      if (fi->name[0] == '.')
+      name = fi->name;
+      if (name[0] == '.')
 	{
-	  if (fi->name[1] == '.' && ! fi->name[2])
+	  if (name[1] == '.' && ! name[2])
 	    return 0;
-	  if (! fi->name[1])
+	  if (! name[1])
 	    return 1;
 	}
       return 2;
