@@ -4238,7 +4238,7 @@ decode_prompt_string (string)
 		      {
 			t = strrchr (t_string, '/');
 			if (t)
-			  strcpy (t_string, t + 1);
+			  memmove (t_string, t + 1, 1 + strlen (t + 1));
 		      }
 		  }
 #undef ROOT_PATH
