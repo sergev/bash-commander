@@ -404,10 +404,6 @@ cmdr_reset_graphics ()
   cmdr_term_horline = '-';
   memcpy (cmdr_term_corner, "+++++++++", 9);
 
-  p = cmdr_term_ac;
-  if (! p)
-    return;
-
   lang = get_locale_var ("LANG");
 /*fprintf (stderr, "LANG = '%s'\r\n", lang);*/
   if (lang && (strstr (lang, "utf8") || strstr (lang, "utf-8") ||
@@ -415,6 +411,12 @@ cmdr_reset_graphics ()
     {
       cmdr_term_utf8 = 1;
       p = "q\200x\202m\224v\264j\230t\234n\274u\244l\214w\254k\220";
+    }
+  else
+    {
+      p = cmdr_term_ac;
+      if (! p)
+        return;
     }
 
   for (; *p; p += 2)

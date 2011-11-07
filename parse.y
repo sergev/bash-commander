@@ -3432,7 +3432,7 @@ read_token_word (character)
 	  pop_delimiter (dstack);
 	  if (ttok == &matched_pair_error)
 	    return -1;		/* Bail immediately. */
-	  RESIZE_MALLOCED_BUFFER (token, token_index, ttoklen + 2,
+	  RESIZE_MALLOCED_BUFFER (token, token_index, ttoklen + 3,
 				  token_buffer_size, TOKEN_DEFAULT_GROW_SIZE);
 	  token[token_index++] = character;
 	  strcpy (token + token_index, ttok);
@@ -3458,7 +3458,7 @@ read_token_word (character)
 	  pop_delimiter (dstack);
 	  if (ttok == &matched_pair_error)
 	    return -1;		/* Bail immediately. */
-	  RESIZE_MALLOCED_BUFFER (token, token_index, ttoklen + 2,
+	  RESIZE_MALLOCED_BUFFER (token, token_index, ttoklen + 3,
 				  token_buffer_size, TOKEN_DEFAULT_GROW_SIZE);
 	  token[token_index++] = character;
 	  strcpy (token + token_index, ttok);
@@ -3481,7 +3481,7 @@ read_token_word (character)
 	      pop_delimiter (dstack);
 	      if (ttok == &matched_pair_error)
 		return -1;		/* Bail immediately. */
-	      RESIZE_MALLOCED_BUFFER (token, token_index, ttoklen + 2,
+	      RESIZE_MALLOCED_BUFFER (token, token_index, ttoklen + 3,
 				      token_buffer_size,
 				      TOKEN_DEFAULT_GROW_SIZE);
 	      token[token_index++] = character;
@@ -3523,7 +3523,7 @@ read_token_word (character)
 		ttok = parse_matched_pair (cd, '[', ']', &ttoklen, 0);
 	      if (ttok == &matched_pair_error)
 		return -1;		/* Bail immediately. */
-	      RESIZE_MALLOCED_BUFFER (token, token_index, ttoklen + 2,
+	      RESIZE_MALLOCED_BUFFER (token, token_index, ttoklen + 3,
 				      token_buffer_size,
 				      TOKEN_DEFAULT_GROW_SIZE);
 	      token[token_index++] = character;
@@ -3612,7 +3612,7 @@ read_token_word (character)
 	  ttok = parse_matched_pair (cd, '[', ']', &ttoklen, 0);
 	  if (ttok == &matched_pair_error)
 	    return -1;		/* Bail immediately. */
-	  RESIZE_MALLOCED_BUFFER (token, token_index, ttoklen + 2,
+	  RESIZE_MALLOCED_BUFFER (token, token_index, ttoklen + 3,
 				  token_buffer_size,
 				  TOKEN_DEFAULT_GROW_SIZE);
 	  token[token_index++] = character;
