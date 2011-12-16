@@ -2155,7 +2155,13 @@ cmdr_init (params)
 
   /* This reworked so that it would work in Vi mode
    *  see ./lib/readline/find.c */
+#if 0
+  /* <Enter> translates to ^J on some terminals.
+   * Use <Esc> <Enter> to insert filenames. */ 
   rl_bind_key_in_map (CTRL('J'), cmdr_insert_filename, cmdr_visual_keymap);
+#else
+  rl_bind_keyseq_in_map ("\033\12", cmdr_insert_filename, cmdr_visual_keymap);
+#endif
   rl_bind_key_in_map (CTRL('L'), cmdr_clear_screen, cmdr_visual_keymap);
   rl_bind_key_in_map (CTRL('T'), cmdr_tag_file, cmdr_visual_keymap);
   rl_bind_keyseq_in_map ("\030a", cmdr_toggle_hidden, cmdr_visual_keymap);
