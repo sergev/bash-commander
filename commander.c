@@ -1775,6 +1775,12 @@ nothing_to_run:
   reset_parser ();
   unbind_variable ("COMMANDER_LINE");
 
+  /* Need to re-read panel contents. */
+  if (cmdr_panel[0])
+    cmdr_panel[0]->refresh = 1;
+  if (cmdr_panel[1])
+    cmdr_panel[1]->refresh = 1;
+
   if (fval > 0)
     {
       /* When returned nonzero, remain in panel mode. */

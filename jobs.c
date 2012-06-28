@@ -521,7 +521,7 @@ stop_pipeline (async, deferred)
 	    i = 0;
 	  if (jobs[i] == 0)
 	    break;
-	}	
+	}
       if (i == js.j_lastj)
         i = js.j_jobslots;
 #else
@@ -771,7 +771,7 @@ bgp_prune ()
       bgpids.npid--;
     }
 }
-    
+
 /* Reset the values of js.j_lastj and js.j_firstj after one or both have
    been deleted.  The caller should check whether js.j_njobs is 0 before
    calling this.  This wraps around, but the rest of the code does not.  At
@@ -814,7 +814,7 @@ reset_job_indices ()
         js.j_firstj = js.j_lastj = js.j_njobs = 0;
     }
 }
-      
+
 /* Delete all DEAD jobs that the user had received notification about. */
 static void
 cleanup_dead_jobs ()
@@ -1983,6 +1983,7 @@ set_tty_state ()
 #  if defined (DRAIN_OUTPUT)
       draino (tty, shell_tty_info.sg_ospeed);
 #  endif /* DRAIN_OUTPUT */
+      tcdrain (tty);
       ioctl (tty, TIOCSETN, &shell_tty_info);
       ioctl (tty, TIOCSETC, &shell_tchars);
       ioctl (tty, TIOCSLTC, &shell_ltchars);
@@ -2040,7 +2041,7 @@ find_last_pid (job, block)
   p = find_last_proc (job, block);
   /* Possible race condition here. */
   return p->pid;
-}     
+}
 
 /* Wait for a particular child of the shell to finish executing.
    This low-level function prints an error message if PID is not
@@ -2187,7 +2188,7 @@ wait_sigint_handler (sig)
 	  wait_signal_received = SIGINT;
 	  longjmp (wait_intr_buf, 1);
 	}
-      
+
       ADDINTERRUPT;
       QUIT;
     }
@@ -2239,7 +2240,7 @@ job_signal_status (job)
 
   return s;
 }
-  
+
 /* Return the exit status of the last process in the pipeline for job JOB.
    This is the exit status of the entire job. */
 static WAIT
@@ -2515,7 +2516,7 @@ if (job == NO_JOB)
 	     substitution, simulate getting and being killed by the SIGINT to
 	     pass the status back to our parent. */
 	  s = job_signal_status (job);
-	
+
 	  if (WIFSIGNALED (s) && WTERMSIG (s) == SIGINT && signal_is_trapped (SIGINT) == 0)
 	    {
 	      UNBLOCK_CHILD (oset);
@@ -2819,7 +2820,7 @@ start_job (job, foreground)
       /* POSIX.2 says `bg' doesn't give any indication about current or
 	 previous job. */
       if (posixly_correct == 0)
-	s = (job == js.j_current) ? "+ ": ((job == js.j_previous) ? "- " : " ");       
+	s = (job == js.j_current) ? "+ ": ((job == js.j_previous) ? "- " : " ");
       else
 	s = " ";
       printf ("[%d]%s", job + 1, s);
@@ -3025,7 +3026,7 @@ waitchld (wpid, block)
 	 if it was non-zero before we called waitpid. */
       if (sigchld > 0 && (waitpid_flags & WNOHANG))
 	sigchld--;
-  
+
       /* If waitpid returns -1 with errno == ECHILD, there are no more
 	 unwaited-for child processes of this shell. */
       if (pid < 0 && errno == ECHILD)
@@ -3070,7 +3071,7 @@ waitchld (wpid, block)
 	  if (job != NO_JOB)
 	    js.c_reaped++;
 	}
-        
+
       if (job == NO_JOB)
 	continue;
 
@@ -3399,7 +3400,7 @@ notify_of_job_status ()
 	  if (startup_state == 0 && WIFSIGNALED (s) == 0 &&
 		((DEADJOB (job) && IS_FOREGROUND (job) == 0) || STOPPED (job)))
 	    continue;
-	  
+
 #if 0
 	  /* If job control is disabled, don't print the status messages.
 	     Mark dead jobs as notified so that they get cleaned up.  If
@@ -3911,7 +3912,7 @@ mark_dead_jobs_as_notified (force)
      way to avoid pid aliasing and reuse problems than keeping the POSIX-
      mandated CHILD_MAX jobs around.  delete_job() takes care of keeping the
      bgpids list regulated. */
-          
+
   /* Count the number of dead jobs */
   /* XXX could use js.j_firstj here */
   for (i = ndead = ndeadproc = 0; i < js.j_jobslots; i++)

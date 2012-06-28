@@ -1994,6 +1994,9 @@ shell_getc (remove_quoted_newline)
 	    cmdr_activate (0);
 	  else
 	    cmdr_activate (1);
+
+          if (token_to_read == '\n')
+            token_to_read = 0;
 	}
 #endif
 
@@ -2115,7 +2118,7 @@ shell_getc (remove_quoted_newline)
     }
 
   if (!uc && shell_input_line_terminator == EOF)
-    return ((shell_input_line_index != 0) ? '\n' : EOF);
+    return ((shell_input_line_index != 0) ? '\n' :EOF);
 
   return (uc);
 }

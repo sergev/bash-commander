@@ -322,7 +322,7 @@ rl_forward_char (count, key)
   return (rl_forward_byte (count, key));
 }
 #endif /* !HANDLE_MULTIBYTE */
-  
+
 /* Backwards compatibility. */
 int
 rl_forward (count, key)
@@ -511,7 +511,7 @@ rl_backward_word (count, key)
       while (rl_point)
 	{
 	  p = MB_PREVCHAR (rl_line_buffer, rl_point, MB_FIND_NONZERO);
-	  c = _rl_char_value (rl_line_buffer, p);	  
+	  c = _rl_char_value (rl_line_buffer, p);
 	  if (_rl_walphabetic (c) == 0)
 	    break;
 	  else
@@ -698,7 +698,7 @@ _rl_insert_char (count, c)
 	}
     }
 #endif /* HANDLE_MULTIBYTE */
-	  
+
   /* If we can optimize, then do it.  But don't let people crash
      readline because of extra large arguments. */
   if (count > 1 && count <= 1024)
@@ -865,7 +865,7 @@ _rl_insert_next (count)
     _rl_restore_tty_signals ();
 #endif
 
-  return (_rl_insert_char (count, c));  
+  return (_rl_insert_char (count, c));
 }
 
 #if defined (READLINE_CALLBACKS)
@@ -880,11 +880,11 @@ _rl_insert_next_callback (data)
   /* Deregister function, let rl_callback_read_char deallocate data */
   _rl_callback_func = 0;
   _rl_want_redisplay = 1;
- 
+
   return _rl_insert_next (count);
 }
 #endif
-  
+
 int
 rl_quoted_insert (count, key)
      int count, key;
@@ -903,7 +903,7 @@ rl_quoted_insert (count, key)
       return (0);
     }
 #endif
-      
+
   return _rl_insert_next (count);
 }
 
@@ -1003,7 +1003,7 @@ _rl_overwrite_rubout (count, key)
 
   return 0;
 }
-  
+
 /* Rubout the character behind point. */
 int
 rl_rubout (count, key)
@@ -1107,7 +1107,7 @@ rl_delete (count, key)
 /* Delete the character under the cursor, unless the insertion
    point is at the end of the line, in which case the character
    behind the cursor is deleted.  COUNT is obeyed and may be used
-   to delete forward or backward that many characters. */      
+   to delete forward or backward that many characters. */
 int
 rl_rubout_or_delete (count, key)
      int count, key;
@@ -1116,7 +1116,7 @@ rl_rubout_or_delete (count, key)
     return (_rl_rubout_char (count, key));
   else
     return (rl_delete (count, key));
-}  
+}
 
 /* Delete all spaces and tabs around point. */
 int
@@ -1578,7 +1578,7 @@ rl_char_search (count, key)
       return (0);
     }
 #endif
-  
+
   return (_rl_char_search (count, FFIND, BFIND));
 }
 
