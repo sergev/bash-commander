@@ -9,19 +9,18 @@
 #
 # Copyright (C) 1996-2004 Free Software Foundation, Inc.
 #
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2, or (at your option)
-# any later version.
+#   This program is free software: you can redistribute it and/or modify
+#   it under the terms of the GNU General Public License as published by
+#   the Free Software Foundation, either version 3 of the License, or
+#   (at your option) any later version.
 #
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
+#   This program is distributed in the hope that it will be useful,
+#   but WITHOUT ANY WARRANTY; without even the implied warranty of
+#   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#   GNU General Public License for more details.
 #
-# You should have received a copy of the GNU General Public License
-# along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111 USA.
+#   You should have received a copy of the GNU General Public License
+#   along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #
 # configuration section:
@@ -85,7 +84,7 @@ for when Bash doesn't behave like you'd like, or expect.
 Bashbug will start up your editor (as defined by the shell's
 EDITOR environment variable) with a preformatted bug report
 template for you to fill in. The report will be mailed to the
-bash maintainers by default. See the manual for details.
+bug-bash mailing list by default. See the manual for details.
 
 If you invoke bashbug by accident, just quit your editor without
 saving any changes to the template, and no bug report will be sent.
@@ -258,7 +257,7 @@ then
 	exit
 fi
 
-echo $n "Send bug report? [y/n] $c"
+echo $n "Send bug report to ${BUGADDR}? [y/n] $c"
 read ans
 case "$ans" in
 [Nn]*)	exit 0 ;;

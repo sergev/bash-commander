@@ -4,19 +4,20 @@
 
    This file is part of GNU Bash, the Bourne Again SHell.
 
-   Bash is free software; you can redistribute it and/or modify it under
-   the terms of the GNU General Public License as published by the Free
-   Software Foundation; either version 2, or (at your option) any later
-   version.
+   Bash is free software: you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation, either version 3 of the License, or
+   (at your option) any later version.
 
-   Bash is distributed in the hope that it will be useful, but WITHOUT ANY
-   WARRANTY; without even the implied warranty of MERCHANTABILITY or
-   FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   for more details.
+   Bash is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
 
-   You should have received a copy of the GNU General Public License along
-   with Bash; see the file COPYING.  If not, write to the Free Software
-   Foundation, 59 Temple Place, Suite 330, Boston, MA 02111 USA. */
+   You should have received a copy of the GNU General Public License
+   along with Bash.  If not, see <http://www.gnu.org/licenses/>.
+*/
+
 #ifdef HAVE_CONFIG_H
 #  include <config.h>
 #endif
@@ -26,6 +27,11 @@
 
 #include "imalloc.h"
 #include "table.h"
+
+#ifdef SHELL
+extern int interrupt_immediately, running_trap;
+extern int signal_is_trapped __P((int));
+#endif
 
 extern int malloc_register;
 
@@ -167,6 +173,18 @@ mregister_alloc (tag, mem, size, file, line)
      int line;
 {
   mr_table_t *tentry;
+  sigset_t set, oset;
+  int blocked_sigs;
+
+  /* Block all signals in case we are executed from a signal handler. */
+  blocked_sigs = 0;
+#ifdef SHELL
+  if (interrupt_immediately || running_trap || signal_is_trapped (SIGINT) || signal_is_trapped (SIGCHLD))
+#endif
+    {
+      _malloc_block_signals (&set, &oset);
+      blocked_sigs = 1;
+    }
 
   tentry = find_entry (mem, FIND_ALLOC);
 
@@ -174,6 +192,8 @@ mregister_alloc (tag, mem, size, file, line)
     {
       /* oops.  table is full.  punt. */
       fprintf (stderr, _("register_alloc: alloc table is full with FIND_ALLOC?\n"));
+      if (blocked_sigs)
+	_malloc_unblock_signals (&set, &oset);
       return;
     }
   
@@ -193,6 +213,9 @@ mregister_alloc (tag, mem, size, file, line)
 
   if (tentry != &mem_overflow)
     table_allocated++;
+
+  if (blocked_sigs)
+    _malloc_unblock_signals (&set, &oset);
 }
 
 void
@@ -203,6 +226,18 @@ mregister_free (mem, size, file, line)
      int line;
 {
   mr_table_t *tentry;
+  sigset_t set, oset;
+  int blocked_sigs;
+
+  /* Block all signals in case we are executed from a signal handler. */
+  blocked_sigs = 0;
+#ifdef SHELL
+  if (interrupt_immediately || running_trap || signal_is_trapped (SIGINT) || signal_is_trapped (SIGCHLD))
+#endif
+    {
+      _malloc_block_signals (&set, &oset);
+      blocked_sigs = 1;
+    }
 
   tentry = find_entry (mem, FIND_EXIST);
   if (tentry == 0)
@@ -211,6 +246,8 @@ mregister_free (mem, size, file, line)
 #if 0
       fprintf (stderr, "register_free: %p not in allocation table?\n", mem);
 #endif
+      if (blocked_sigs)
+	_malloc_unblock_signals (&set, &oset);
       return;
     }
   if (tentry->flags & MT_FREE)
@@ -227,6 +264,9 @@ mregister_free (mem, size, file, line)
 
   if (tentry != &mem_overflow)
     table_allocated--;
+
+  if (blocked_sigs)
+    _malloc_unblock_signals (&set, &oset);
 }
 
 /* If we ever add more flags, this will require changes. */

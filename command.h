@@ -1,23 +1,23 @@
 /* command.h -- The structures used internally to represent commands, and
    the extern declarations of the functions used to create them. */
 
-/* Copyright (C) 1993-2005 Free Software Foundation, Inc.
+/* Copyright (C) 1993-2010 Free Software Foundation, Inc.
 
    This file is part of GNU Bash, the Bourne Again SHell.
 
-   Bash is free software; you can redistribute it and/or modify it under
-   the terms of the GNU General Public License as published by the Free
-   Software Foundation; either version 2, or (at your option) any later
-   version.
+   Bash is free software: you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation, either version 3 of the License, or
+   (at your option) any later version.
 
-   Bash is distributed in the hope that it will be useful, but WITHOUT ANY
-   WARRANTY; without even the implied warranty of MERCHANTABILITY or
-   FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   for more details.
+   Bash is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
 
-   You should have received a copy of the GNU General Public License along
-   with Bash; see the file COPYING.  If not, write to the Free Software
-   Foundation, 59 Temple Place, Suite 330, Boston, MA 02111 USA. */
+   You should have received a copy of the GNU General Public License
+   along with Bash.  If not, see <http://www.gnu.org/licenses/>.
+*/
 
 #if !defined (_COMMAND_H_)
 #define _COMMAND_H_
@@ -31,20 +31,25 @@ enum r_instruction {
   r_duplicating_input, r_duplicating_output, r_deblank_reading_until,
   r_close_this, r_err_and_out, r_input_output, r_output_force,
   r_duplicating_input_word, r_duplicating_output_word,
-  r_move_input, r_move_output, r_move_input_word, r_move_output_word
+  r_move_input, r_move_output, r_move_input_word, r_move_output_word,
+  r_append_err_and_out
 };
+
+/* Redirection flags; values for rflags */
+#define REDIR_VARASSIGN		0x01
 
 /* Redirection errors. */
 #define AMBIGUOUS_REDIRECT  -1
 #define NOCLOBBER_REDIRECT  -2
 #define RESTRICTED_REDIRECT -3	/* can only happen in restricted shells. */
 #define HEREDOC_REDIRECT    -4  /* here-doc temp file can't be created */
+#define BADVAR_REDIRECT	    -5  /* something wrong with {varname}redir */
 
 #define CLOBBERING_REDIRECT(ri) \
   (ri == r_output_direction || ri == r_err_and_out)
 
 #define OUTPUT_REDIRECT(ri) \
-  (ri == r_output_direction || ri == r_input_output || ri == r_err_and_out)
+  (ri == r_output_direction || ri == r_input_output || ri == r_err_and_out || ri == r_append_err_and_out)
 
 #define INPUT_REDIRECT(ri) \
   (ri == r_input_direction || ri == r_inputa_direction || ri == r_input_output)
@@ -54,6 +59,7 @@ enum r_instruction {
 	ri == r_input_output || \
 	ri == r_err_and_out || \
 	ri == r_appending_to || \
+	ri == r_append_err_and_out || \
 	ri == r_output_force)
 
 /* redirection needs translation */
@@ -64,16 +70,16 @@ enum r_instruction {
 /* Command Types: */
 enum command_type { cm_for, cm_case, cm_while, cm_if, cm_simple, cm_select,
 		    cm_connection, cm_function_def, cm_until, cm_group,
-		    cm_arith, cm_cond, cm_arith_for, cm_subshell };
+		    cm_arith, cm_cond, cm_arith_for, cm_subshell, cm_coproc };
 
 /* Possible values for the `flags' field of a WORD_DESC. */
 #define W_HASDOLLAR	0x000001	/* Dollar sign present. */
 #define W_QUOTED	0x000002	/* Some form of quote character is present. */
 #define W_ASSIGNMENT	0x000004	/* This word is a variable assignment. */
-#define W_GLOBEXP	0x000008	/* This word is the result of a glob expansion. */
-#define W_NOSPLIT	0x000010	/* Do not perform word splitting on this word. */
+#define W_SPLITSPACE	0x000008	/* Split this word on " " regardless of IFS */
+#define W_NOSPLIT	0x000010	/* Do not perform word splitting on this word because ifs is empty string. */
 #define W_NOGLOB	0x000020	/* Do not perform globbing on this word. */
-#define W_NOSPLIT2	0x000040	/* Don't split word except for $@ expansion. */
+#define W_NOSPLIT2	0x000040	/* Don't split word except for $@ expansion (using spaces) because context does not allow it. */
 #define W_TILDEEXP	0x000080	/* Tilde expand this assignment word */
 #define W_DOLLARAT	0x000100	/* $@ and its special handling */
 #define W_DOLLARSTAR	0x000200	/* $* and its special handling */
@@ -88,6 +94,13 @@ enum command_type { cm_for, cm_case, cm_while, cm_if, cm_simple, cm_select,
 #define W_HASQUOTEDNULL	0x040000	/* word contains a quoted null character */
 #define W_DQUOTE	0x080000	/* word should be treated as if double-quoted */
 #define W_NOPROCSUB	0x100000	/* don't perform process substitution */
+#define W_HASCTLESC	0x200000	/* word contains literal CTLESC characters */
+#define W_ASSIGNASSOC	0x400000	/* word looks like associative array assignment */
+#define W_ASSIGNARRAY	0x800000	/* word looks like a compound indexed array assignment */
+#define W_ARRAYIND	0x1000000	/* word is an array index being expanded */
+#define W_ASSNGLOBAL	0x2000000	/* word is a global assignment to declare (declare/typeset -g) */
+#define W_NOBRACE	0x4000000	/* Don't perform brace expansion */
+#define W_ASSIGNINT	0x8000000	/* word is an integer assignment to declare */
 
 /* Possible values for subshell_environment */
 #define SUBSHELL_ASYNC	0x01	/* subshell caused by `command &' */
@@ -95,6 +108,9 @@ enum command_type { cm_for, cm_case, cm_while, cm_if, cm_simple, cm_select,
 #define SUBSHELL_COMSUB	0x04	/* subshell caused by `command` or $(command) */
 #define SUBSHELL_FORK	0x08	/* subshell caused by executing a disk command */
 #define SUBSHELL_PIPE	0x10	/* subshell from a pipeline element */
+#define SUBSHELL_PROCSUB 0x20	/* subshell caused by <(command) or >(command) */
+#define SUBSHELL_COPROC	0x40	/* subshell from a coproc pipeline */
+#define SUBSHELL_RESETTRAP 0x80	/* subshell needs to reset trap strings on first call to trap */
 
 /* A structure which represents a word. */
 typedef struct word_desc {
@@ -129,7 +145,8 @@ typedef union {
    (or translator in redir.c) encountered an out-of-range file descriptor. */
 typedef struct redirect {
   struct redirect *next;	/* Next element, or NULL. */
-  int redirector;		/* Descriptor to be redirected. */
+  REDIRECTEE redirector;	/* Descriptor or varname to be redirected. */
+  int rflags;			/* Private flags for this redirection */
   int flags;			/* Flag value for `open'. */
   enum r_instruction  instruction; /* What to do with the information. */
   REDIRECTEE redirectee;	/* File descriptor or filename */
@@ -156,6 +173,8 @@ typedef struct element {
 #define CMD_AMPERSAND	   0x200 /* command & */
 #define CMD_STDIN_REDIR	   0x400 /* async command needs implicit </dev/null */
 #define CMD_COMMAND_BUILTIN 0x0800 /* command executed by `command' builtin */
+#define CMD_COPROC_SUBSHELL 0x1000
+#define CMD_LASTPIPE	    0x2000
 
 /* What a command looks like. */
 typedef struct command {
@@ -185,6 +204,7 @@ typedef struct command {
     struct arith_for_com *ArithFor;
 #endif
     struct subshell_com *Subshell;
+    struct coproc_com *Coproc;
   } value;
 } COMMAND;
 
@@ -197,6 +217,10 @@ typedef struct connection {
 } CONNECTION;
 
 /* Structures used to represent the CASE command. */
+
+/* Values for FLAGS word in a PATTERN_LIST */
+#define CASEPAT_FALLTHROUGH	0x01
+#define CASEPAT_TESTNEXT	0x02
 
 /* Pattern/action structure for CASE_COM. */
 typedef struct pattern_list {
@@ -275,7 +299,7 @@ typedef struct arith_com {
 } ARITH_COM;
 #endif /* DPAREN_ARITHMETIC */
 
-/* The conditional command, [[...]].  This is a binary tree -- we slippped
+/* The conditional command, [[...]].  This is a binary tree -- we slipped
    a recursive-descent parser into the YACC grammar to parse it. */
 #define COND_AND	1
 #define COND_OR		2
@@ -322,7 +346,29 @@ typedef struct subshell_com {
   COMMAND *command;
 } SUBSHELL_COM;
 
+#define COPROC_RUNNING	0x01
+#define COPROC_DEAD	0x02
+
+typedef struct coproc {
+  char *c_name;
+  pid_t c_pid;
+  int c_rfd;
+  int c_wfd;
+  int c_rsave;
+  int c_wsave;
+  int c_flags;
+  int c_status;
+  int c_lock;
+} Coproc;
+
+typedef struct coproc_com {
+  int flags;
+  char *name;
+  COMMAND *command;
+} COPROC_COM;
+
 extern COMMAND *global_command;
+extern Coproc sh_coproc;
 
 /* Possible command errors */
 #define CMDERR_DEFAULT	0

@@ -1,24 +1,23 @@
 /* histexpand.c -- history expansion. */
 
-/* Copyright (C) 1989-2004 Free Software Foundation, Inc.
+/* Copyright (C) 1989-2012 Free Software Foundation, Inc.
 
-   This file contains the GNU History Library (the Library), a set of
+   This file contains the GNU History Library (History), a set of
    routines for managing the text of previously typed lines.
 
-   The Library is free software; you can redistribute it and/or modify
+   History is free software: you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
-   the Free Software Foundation; either version 2, or (at your option)
-   any later version.
+   the Free Software Foundation, either version 3 of the License, or
+   (at your option) any later version.
 
-   The Library is distributed in the hope that it will be useful, but
-   WITHOUT ANY WARRANTY; without even the implied warranty of
-   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   General Public License for more details.
+   History is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
 
-   The GNU General Public License is often shipped with GNU software, and
-   is generally kept in a file called COPYING or LICENSE.  If you do not
-   have a copy of the license, write to the Free Software Foundation,
-   59 Temple Place, Suite 330, Boston, MA 02111 USA. */
+   You should have received a copy of the GNU General Public License
+   along with History.  If not, see <http://www.gnu.org/licenses/>.
+*/
 
 #define READLINE_LIBRARY
 
@@ -64,9 +63,11 @@ static int subst_lhs_len;
 static int subst_rhs_len;
 
 static char *get_history_word_specifier PARAMS((char *, char *, int *));
-static char *history_find_word PARAMS((char *, int));
 static int history_tokenize_word PARAMS((const char *, int));
+static char **history_tokenize_internal PARAMS((const char *, int, int *));
 static char *history_substring PARAMS((const char *, int, int));
+static void freewords PARAMS((char **, int));
+static char *history_find_word PARAMS((char *, int));
 
 static char *quote_breaks PARAMS((char *));
 
@@ -244,7 +245,7 @@ get_history_event (string, caller_index, delimiting_quote)
 
 #define FAIL_SEARCH() \
   do { \
-    history_offset = history_length; free (temp) ; return (char *)NULL; \
+    history_offset = history_length; xfree (temp) ; return (char *)NULL; \
   } while (0)
 
   /* If there is no search string, try to use the previous search string,
@@ -253,7 +254,7 @@ get_history_event (string, caller_index, delimiting_quote)
     {
       if (search_string)
         {
-          free (temp);
+          xfree (temp);
           temp = savestring (search_string);
         }
       else
@@ -271,6 +272,8 @@ get_history_event (string, caller_index, delimiting_quote)
       if (local_index == 0 || substring_okay)
 	{
 	  entry = current_history ();
+	  if (entry == 0)
+	    FAIL_SEARCH ();
 	  history_offset = history_length;
 	
 	  /* If this was a substring search, then remember the
@@ -284,7 +287,7 @@ get_history_event (string, caller_index, delimiting_quote)
 	      search_match = history_find_word (entry->line, local_index);
 	    }
 	  else
-	    free (temp);
+	    xfree (temp);
 
 	  return (entry->line);
 	}
@@ -304,16 +307,20 @@ get_history_event (string, caller_index, delimiting_quote)
 /* Extract the contents of STRING as if it is enclosed in single quotes.
    SINDEX, when passed in, is the offset of the character immediately
    following the opening single quote; on exit, SINDEX is left pointing
-   to the closing single quote. */
+   to the closing single quote.  FLAGS currently used to allow backslash
+   to escape a single quote (e.g., for bash $'...'). */
 static void
-hist_string_extract_single_quoted (string, sindex)
+hist_string_extract_single_quoted (string, sindex, flags)
      char *string;
-     int *sindex;
+     int *sindex, flags;
 {
   register int i;
 
   for (i = *sindex; string[i] && string[i] != '\''; i++)
-    ;
+    {
+      if ((flags & 1) && string[i] == '\\' && string[i+1])
+        i++;
+    }
 
   *sindex = i;
 }
@@ -503,7 +510,7 @@ postproc_subst_rhs ()
 	}
     }
   new[j] = '\0';
-  free (subst_rhs);
+  xfree (subst_rhs);
   subst_rhs = new;
   subst_rhs_len = j;
 }
@@ -514,9 +521,9 @@ postproc_subst_rhs ()
    the returned string.  Returns the new index into string in
    *END_INDEX_PTR, and the expanded specifier in *RET_STRING. */
 static int
-history_expand_internal (string, start, end_index_ptr, ret_string, current_line)
+history_expand_internal (string, start, qc, end_index_ptr, ret_string, current_line)
      char *string;
-     int start, *end_index_ptr;
+     int start, qc, *end_index_ptr;
      char **ret_string;
      char *current_line;	/* for !# */
 {
@@ -552,35 +559,12 @@ history_expand_internal (string, start, end_index_ptr, ret_string, current_line)
       event = current_line;
     }
   else
-    {
-      int quoted_search_delimiter = 0;
-
-      /* If the character before this `!' is a double or single
-	 quote, then this expansion takes place inside of the
-	 quoted string.  If we have to search for some text ("!foo"),
-	 allow the delimiter to end the search string. */
-#if defined (HANDLE_MULTIBYTE)
-      if (MB_CUR_MAX > 1 && rl_byte_oriented == 0)
-	{
-	  int ch, l;
-	  l = _rl_find_prev_mbchar (string, i, MB_FIND_ANY);
-	  ch = string[l];
-	  /* XXX - original patch had i - 1 ???  If i == 0 it would fail. */
-	  if (i && (ch == '\'' || ch == '"'))
-	    quoted_search_delimiter = ch;
-	}
-      else
-#endif /* HANDLE_MULTIBYTE */	  
-	if (i && (string[i - 1] == '\'' || string[i - 1] == '"'))
-	  quoted_search_delimiter = string[i - 1];
-
-      event = get_history_event (string, &i, quoted_search_delimiter);
-    }
+    event = get_history_event (string, &i, qc);
 	  
   if (event == 0)
     {
       *ret_string = hist_error (string, start, i, EVENT_NOT_FOUND);
-      free (result);
+      xfree (result);
       return (-1);
     }
 
@@ -594,7 +578,7 @@ history_expand_internal (string, start, end_index_ptr, ret_string, current_line)
   if (word_spec == (char *)&error_pointer)
     {
       *ret_string = hist_error (string, starting_index, i, BAD_WORD_SPEC);
-      free (result);
+      xfree (result);
       return (-1);
     }
 
@@ -627,8 +611,8 @@ history_expand_internal (string, start, end_index_ptr, ret_string, current_line)
 	{
 	default:
 	  *ret_string = hist_error (string, i+1, i+2, BAD_MODIFIER);
-	  free (result);
-	  free (temp);
+	  xfree (result);
+	  xfree (temp);
 	  return -1;
 
 	case 'q':
@@ -653,7 +637,7 @@ history_expand_internal (string, start, end_index_ptr, ret_string, current_line)
 	    {
 	      tstr++;
 	      t = savestring (tstr);
-	      free (temp);
+	      xfree (temp);
 	      temp = t;
 	    }
 	  break;
@@ -678,7 +662,7 @@ history_expand_internal (string, start, end_index_ptr, ret_string, current_line)
 	  if (tstr)
 	    {
 	      t = savestring (tstr);
-	      free (temp);
+	      xfree (temp);
 	      temp = t;
 	    }
 	  break;
@@ -754,8 +738,8 @@ history_expand_internal (string, start, end_index_ptr, ret_string, current_line)
 	    if (subst_lhs_len == 0)
 	      {
 		*ret_string = hist_error (string, starting_index, i, NO_PREV_SUBST);
-		free (result);
-		free (temp);
+		xfree (result);
+		xfree (temp);
 		return -1;
 	      }
 
@@ -764,8 +748,8 @@ history_expand_internal (string, start, end_index_ptr, ret_string, current_line)
 	    if (subst_lhs_len > l_temp)
 	      {
 		*ret_string = hist_error (string, starting_index, i, SUBST_FAILED);
-		free (result);
-		free (temp);
+		xfree (result);
+		xfree (temp);
 		return (-1);
 	      }
 
@@ -806,7 +790,7 @@ history_expand_internal (string, start, end_index_ptr, ret_string, current_line)
 			     temp + si + subst_lhs_len,
 			     l_temp - (si + subst_lhs_len));
 		    new_event[len] = '\0';
-		    free (temp);
+		    xfree (temp);
 		    temp = new_event;
 
 		    failed = 0;
@@ -842,14 +826,14 @@ history_expand_internal (string, start, end_index_ptr, ret_string, current_line)
 	      continue;		/* don't want to increment i */
 
 	    *ret_string = hist_error (string, starting_index, i, SUBST_FAILED);
-	    free (result);
-	    free (temp);
+	    xfree (result);
+	    xfree (temp);
 	    return (-1);
 	  }
 	}
       i += 2;
     }
-  /* Done with modfiers. */
+  /* Done with modifiers. */
   /* Believe it or not, we have to back the pointer up by one. */
   --i;
 
@@ -864,7 +848,7 @@ history_expand_internal (string, start, end_index_ptr, ret_string, current_line)
       else
 	x = savestring (temp);
 
-      free (temp);
+      xfree (temp);
       temp = x;
     }
 
@@ -872,7 +856,7 @@ history_expand_internal (string, start, end_index_ptr, ret_string, current_line)
   if (n >= result_len)
     result = (char *)xrealloc (result, n + 2);
   strcpy (result, temp);
-  free (temp);
+  xfree (temp);
 
   *end_index_ptr = i;
   *ret_string = result;
@@ -923,7 +907,7 @@ history_expand (hstring, output)
      char **output;
 {
   register int j;
-  int i, r, l, passc, cc, modified, eindex, only_printing, dquote;
+  int i, r, l, passc, cc, modified, eindex, only_printing, dquote, squote, flag;
   char *string;
 
   /* The output string, and its length. */
@@ -986,7 +970,7 @@ history_expand (hstring, output)
 
       /* `!' followed by one of the characters in history_no_expand_chars
 	 is NOT an expansion. */
-      for (i = dquote = 0; string[i]; i++)
+      for (i = dquote = squote = 0; string[i]; i++)
 	{
 #if defined (HANDLE_MULTIBYTE)
 	  if (MB_CUR_MAX > 1 && rl_byte_oriented == 0)
@@ -1015,7 +999,14 @@ history_expand (hstring, output)
 	    }
 	  else if (string[i] == history_expansion_char)
 	    {
-	      if (!cc || member (cc, history_no_expand_chars))
+	      if (cc == 0 || member (cc, history_no_expand_chars))
+		continue;
+	      /* DQUOTE won't be set unless history_quotes_inhibit_expansion
+		 is set.  The idea here is to treat double-quoted strings the
+		 same as the word outside double quotes; in effect making the
+		 double quote part of history_no_expand_chars when DQUOTE is
+		 set. */
+	      else if (dquote && cc == '"')
 		continue;
 	      /* If the calling application has set
 		 history_inhibit_expansion_function to a function that checks
@@ -1043,8 +1034,9 @@ history_expand (hstring, output)
 	  else if (dquote == 0 && history_quotes_inhibit_expansion && string[i] == '\'')
 	    {
 	      /* If this is bash, single quotes inhibit history expansion. */
+	      flag = (i > 0 && string[i - 1] == '$');
 	      i++;
-	      hist_string_extract_single_quoted (string, &i);
+	      hist_string_extract_single_quoted (string, &i, flag);
 	    }
 	  else if (history_quotes_inhibit_expansion && string[i] == '\\')
 	    {
@@ -1058,16 +1050,16 @@ history_expand (hstring, output)
 	  
       if (string[i] != history_expansion_char)
 	{
-	  free (result);
+	  xfree (result);
 	  *output = savestring (string);
 	  return (0);
 	}
     }
 
   /* Extract and perform the substitution. */
-  for (passc = dquote = i = j = 0; i < l; i++)
+  for (passc = dquote = squote = i = j = 0; i < l; i++)
     {
-      int tchar = string[i];
+      int qc, tchar = string[i];
 
       if (passc)
 	{
@@ -1095,7 +1087,7 @@ history_expand (hstring, output)
 	  if (strlen (mb) > 1)
 	    {
 	      ADD_STRING (mb);
-	      break;
+	      continue;
 	    }
 	}
 #endif /* HANDLE_MULTIBYTE */
@@ -1124,20 +1116,32 @@ history_expand (hstring, output)
 	case '\'':
 	  {
 	    /* If history_quotes_inhibit_expansion is set, single quotes
-	       inhibit history expansion. */
-	    if (dquote == 0 && history_quotes_inhibit_expansion)
+	       inhibit history expansion, otherwise they are treated like
+	       double quotes. */
+	    if (squote)
+	      {
+	        squote = 0;
+	        ADD_CHAR (tchar);
+	      }
+	    else if (dquote == 0 && history_quotes_inhibit_expansion)
 	      {
 		int quote, slen;
 
+		flag = (i > 0 && string[i - 1] == '$');
 		quote = i++;
-		hist_string_extract_single_quoted (string, &i);
+		hist_string_extract_single_quoted (string, &i, flag);
 
 		slen = i - quote + 2;
 		temp = (char *)xmalloc (slen);
 		strncpy (temp, string + quote, slen);
 		temp[slen - 1] = '\0';
 		ADD_STRING (temp);
-		free (temp);
+		xfree (temp);
+	      }
+	    else if (dquote == 0 && squote == 0 && history_quotes_inhibit_expansion == 0)
+	      {
+	        squote = 1;
+	        ADD_CHAR (string[i]);
 	      }
 	    else
 	      ADD_CHAR (string[i]);
@@ -1150,7 +1154,7 @@ history_expand (hstring, output)
 	      temp = (char *)xmalloc (l - i + 1);
 	      strcpy (temp, string + i);
 	      ADD_STRING (temp);
-	      free (temp);
+	      xfree (temp);
 	      i = l;
 	    }
 	  else
@@ -1163,7 +1167,9 @@ history_expand (hstring, output)
 	  /* If the history_expansion_char is followed by one of the
 	     characters in history_no_expand_chars, then it is not a
 	     candidate for expansion of any kind. */
-	  if (member (cc, history_no_expand_chars))
+	  if (cc == 0 || member (cc, history_no_expand_chars) ||
+			 (dquote && cc == '"') ||
+	  		 (history_inhibit_expansion_function && (*history_inhibit_expansion_function) (string, i)))
 	    {
 	      ADD_CHAR (string[i]);
 	      break;
@@ -1182,20 +1188,20 @@ history_expand (hstring, output)
 		  temp = (char *)xmalloc (1 + strlen (result));
 		  strcpy (temp, result);
 		  ADD_STRING (temp);
-		  free (temp);
+		  xfree (temp);
 		}
 	      i++;
 	      break;
 	    }
 #endif
-
-	  r = history_expand_internal (string, i, &eindex, &temp, result);
+	  qc = squote ? '\'' : (dquote ? '"' : 0);
+	  r = history_expand_internal (string, i, qc, &eindex, &temp, result);
 	  if (r < 0)
 	    {
 	      *output = temp;
-	      free (result);
+	      xfree (result);
 	      if (string != hstring)
-		free (string);
+		xfree (string);
 	      return -1;
 	    }
 	  else
@@ -1205,7 +1211,7 @@ history_expand (hstring, output)
 		  modified++;
 		  if (*temp)
 		    ADD_STRING (temp);
-		  free (temp);
+		  xfree (temp);
 		}
 	      only_printing = r == 1;
 	      i = eindex;
@@ -1216,7 +1222,7 @@ history_expand (hstring, output)
 
   *output = result;
   if (string != hstring)
-    free (string);
+    xfree (string);
 
   if (only_printing)
     {
@@ -1397,8 +1403,8 @@ history_arg_extract (first, last, string)
     }
 
   for (i = 0; i < len; i++)
-    free (list[i]);
-  free (list);
+    xfree (list[i]);
+  xfree (list);
 
   return (result);
 }
@@ -1409,10 +1415,10 @@ history_tokenize_word (string, ind)
      int ind;
 {
   register int i;
-  int delimiter;
+  int delimiter, nestdelim, delimopen;
 
   i = ind;
-  delimiter = 0;
+  delimiter = nestdelim = 0;
 
   if (member (string[i], "()\n"))
     {
@@ -1433,17 +1439,29 @@ history_tokenize_word (string, ind)
 	  i += 2;
 	  return i;
 	}
-      else
+      else if ((peek == '&' && (string[i] == '>' || string[i] == '<')) ||
+		(peek == '>' && string[i] == '&'))
 	{
-	  if ((peek == '&' && (string[i] == '>' || string[i] == '<')) ||
-	      (peek == '>' && string[i] == '&') ||
-	      (peek == '(' && (string[i] == '>' || string[i] == '<')) || /* ) */
-	      (peek == '(' && string[i] == '$')) /* ) */
-	    {
-	      i += 2;
-	      return i;
-	    }
+	  i += 2;
+	  return i;
 	}
+      /* XXX - separated out for later -- bash-4.2 */
+      else if ((peek == '(' && (string[i] == '>' || string[i] == '<')) || /* ) */
+	       (peek == '(' && string[i] == '$')) /*)*/
+	{
+	  i += 2;
+	  delimopen = '(';
+	  delimiter = ')';
+	  nestdelim = 1;
+	  goto get_word;
+	}
+#if 0
+      else if (peek == '\'' && string[i] == '$')
+        {
+	  i += 2;	/* XXX */
+	  return i;
+        }
+#endif
 
       if (string[i] != '$')
 	{
@@ -1452,9 +1470,25 @@ history_tokenize_word (string, ind)
 	}
     }
 
+  /* same code also used for $(...)/<(...)/>(...) above */
+  if (member (string[i], "!@?+*"))
+    {
+      int peek = string[i + 1];
+
+      if (peek == '(')		/*)*/
+	{
+	  /* Shell extended globbing patterns */
+	  i += 2;
+	  delimopen = '(';
+	  delimiter = ')';	/* XXX - not perfect */
+	  nestdelim = 1;
+	}
+    }
+
+get_word:
   /* Get word from string + i; */
 
-  if (member (string[i], HISTORY_QUOTE_CHARACTERS))
+  if (delimiter == 0 && member (string[i], HISTORY_QUOTE_CHARACTERS))
     delimiter = string[i++];
 
   for (; string[i]; i++)
@@ -1472,16 +1506,31 @@ history_tokenize_word (string, ind)
 	  continue;
 	}
 
+      /* delimiter must be set and set to something other than a quote if
+	 nestdelim is set, so these tests are safe. */
+      if (nestdelim && string[i] == delimopen)
+	{
+	  nestdelim++;
+	  continue;
+	}
+      if (nestdelim && string[i] == delimiter)
+	{
+	  nestdelim--;
+	  if (nestdelim == 0)
+	    delimiter = 0;
+	  continue;
+	}
+      
       if (delimiter && string[i] == delimiter)
 	{
 	  delimiter = 0;
 	  continue;
 	}
 
-      if (!delimiter && (member (string[i], history_word_delimiters)))
+      if (delimiter == 0 && (member (string[i], history_word_delimiters)))
 	break;
 
-      if (!delimiter && member (string[i], HISTORY_QUOTE_CHARACTERS))
+      if (delimiter == 0 && member (string[i], HISTORY_QUOTE_CHARACTERS))
 	delimiter = string[i];
     }
 
@@ -1569,6 +1618,18 @@ history_tokenize (string)
   return (history_tokenize_internal (string, -1, (int *)NULL));
 }
 
+/* Free members of WORDS from START to an empty string */
+static void
+freewords (words, start)
+     char **words;
+     int start;
+{
+  register int i;
+
+  for (i = start; words[i]; i++)
+    xfree (words[i]);
+}
+
 /* Find and return the word which contains the character at index IND
    in the history line LINE.  Used to save the word matched by the
    last history !?string? search. */
@@ -1582,12 +1643,16 @@ history_find_word (line, ind)
 
   words = history_tokenize_internal (line, ind, &wind);
   if (wind == -1 || words == 0)
-    return ((char *)NULL);
+    {
+      if (words)
+	freewords (words, 0);
+      FREE (words);
+      return ((char *)NULL);
+    }
   s = words[wind];
   for (i = 0; i < wind; i++)
-    free (words[i]);
-  for (i = wind + 1; words[i]; i++)
-    free (words[i]);
-  free (words);
+    xfree (words[i]);
+  freewords (words, wind + 1);
+  xfree (words);
   return s;
 }

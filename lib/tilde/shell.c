@@ -1,24 +1,23 @@
 /* shell.c -- tilde utility functions that are normally provided by
 	      bash when readline is linked as part of the shell. */
 
-/* Copyright (C) 1998 Free Software Foundation, Inc.
+/* Copyright (C) 1998-2009 Free Software Foundation, Inc.
 
    This file is part of the GNU Tilde Library.
 
-   The GNU Tilde Library is free software; you can redistribute it
-   and/or modify it under the terms of the GNU General Public License
-   as published by the Free Software Foundation; either version 2, or
+   The GNU Tilde Library is free software: you can redistribute it and/or
+   modify it under the terms of the GNU General Public License as published
+   by the Free Software Foundation, either version 3 of the License, or
    (at your option) any later version.
 
-   The GNU Tilde Library is distributed in the hope that it will be
-   useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-   of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   The GNU Tilde Library is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
    GNU General Public License for more details.
 
-   The GNU General Public License is often shipped with GNU software, and
-   is generally kept in a file called COPYING or LICENSE.  If you do not
-   have a copy of the license, write to the Free Software Foundation,
-   59 Temple Place, Suite 330, Boston, MA 02111 USA. */
+   You should have received a copy of the GNU General Public License
+   along with the GNU Tilde Library.  If not, see <http://www.gnu.org/licenses/>.
+*/
 
 #if defined (HAVE_CONFIG_H)
 #  include <config.h>
@@ -56,15 +55,26 @@ get_env_value (varname)
   return ((char *)getenv (varname));
 }
 
+/* If we're not using $HOME, assume that the passwd file information won't
+   change while this shell instance is running. */
 char *
 get_home_dir ()
 {
-  char *home_dir;
+  static char *home_dir = (char *)NULL;
   struct passwd *entry;
 
-  home_dir = (char *)NULL;
+  if (home_dir)
+    return (home_dir);
+
+#if defined (HAVE_GETPWUID)
   entry = getpwuid (getuid ());
   if (entry)
-    home_dir = entry->pw_dir;
+    home_dir = savestring (entry->pw_dir);
+#endif
+
+#if defined (HAVE_GETPWENT)
+  endpwent ();		/* some systems need this */
+#endif
+
   return (home_dir);
 }

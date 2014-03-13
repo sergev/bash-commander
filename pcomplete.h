@@ -1,23 +1,23 @@
 /* pcomplete.h - structure definitions and other stuff for programmable
 		 completion. */
 
-/* Copyright (C) 1999-2002 Free Software Foundation, Inc.
+/* Copyright (C) 1999-2009 Free Software Foundation, Inc.
 
    This file is part of GNU Bash, the Bourne Again SHell.
 
-   Bash is free software; you can redistribute it and/or modify it under
-   the terms of the GNU General Public License as published by the Free
-   Software Foundation; either version 2, or (at your option) any later
-   version.
+   Bash is free software: you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation, either version 3 of the License, or
+   (at your option) any later version.
 
-   Bash is distributed in the hope that it will be useful, but WITHOUT ANY
-   WARRANTY; without even the implied warranty of MERCHANTABILITY or
-   FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   for more details.
+   Bash is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
 
-   You should have received a copy of the GNU General Public License along
-   with Bash; see the file COPYING.  If not, write to the Free Software
-   Foundation, 59 Temple Place, Suite 330, Boston, MA 02111 USA. */
+   You should have received a copy of the GNU General Public License
+   along with Bash.  If not, see <http://www.gnu.org/licenses/>.
+*/
 
 #if !defined (_PCOMPLETE_H_)
 #  define _PCOMPLETE_H_
@@ -35,6 +35,7 @@ typedef struct compspec {
   char *suffix;
   char *funcname;
   char *command;
+  char *lcommand;
   char *filterpat;
 } COMPSPEC;
 
@@ -70,9 +71,10 @@ typedef struct compspec {
 #define COPT_DEFAULT	(1<<1)
 #define COPT_FILENAMES	(1<<2)
 #define COPT_DIRNAMES	(1<<3)
-#define COPT_NOSPACE	(1<<4)
-#define COPT_BASHDEFAULT (1<<5)
-#define COPT_PLUSDIRS	(1<<6)
+#define COPT_NOQUOTE	(1<<4)
+#define COPT_NOSPACE	(1<<5)
+#define COPT_BASHDEFAULT (1<<6)
+#define COPT_PLUSDIRS	(1<<7)
 
 /* List of items is used by the code that implements the programmable
    completions. */
@@ -96,6 +98,9 @@ typedef struct _list_of_items {
 #define LIST_DONTFREE		0x010
 #define LIST_DONTFREEMEMBERS	0x020
 
+#define EMPTYCMD	"_EmptycmD_"
+#define DEFAULTCMD	"_DefaultCmD_"
+
 extern HASH_TABLE *prog_completes;
 extern int prog_completion_enabled;
 
@@ -112,6 +117,7 @@ extern ITEMLIST it_exports;
 extern ITEMLIST it_files;
 extern ITEMLIST it_functions;
 extern ITEMLIST it_groups;
+extern ITEMLIST it_helptopics;
 extern ITEMLIST it_hostnames;
 extern ITEMLIST it_jobs;
 extern ITEMLIST it_keywords;
@@ -123,6 +129,9 @@ extern ITEMLIST it_signals;
 extern ITEMLIST it_stopped;
 extern ITEMLIST it_users;
 extern ITEMLIST it_variables;
+
+extern COMPSPEC *pcomp_curcs;
+extern const char *pcomp_curcmd;
 
 /* Functions from pcomplib.c */
 extern COMPSPEC *compspec_create __P((void));
@@ -147,7 +156,9 @@ extern void set_itemlist_dirty __P((ITEMLIST *));
 
 extern STRINGLIST *completions_to_stringlist __P((char **));
 
-extern STRINGLIST *gen_compspec_completions __P((COMPSPEC *, const char *, const char *, int, int));
+extern STRINGLIST *gen_compspec_completions __P((COMPSPEC *, const char *, const char *, int, int, int *));
 extern char **programmable_completions __P((const char *, const char *, int, int, int *));
 
+extern void pcomp_set_readline_variables __P((int, int));
+extern void pcomp_set_compspec_options __P((COMPSPEC *, int, int));
 #endif /* _PCOMPLETE_H_ */

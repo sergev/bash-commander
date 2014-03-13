@@ -1,24 +1,24 @@
-/* GNU test program (ksb and mjb) */
+/* test.c - GNU test program (ksb and mjb) */
 
 /* Modified to run with the GNU shell Apr 25, 1988 by bfox. */
 
-/* Copyright (C) 1987-2005 Free Software Foundation, Inc.
+/* Copyright (C) 1987-2010 Free Software Foundation, Inc.
 
    This file is part of GNU Bash, the Bourne Again SHell.
 
-   Bash is free software; you can redistribute it and/or modify it under
-   the terms of the GNU General Public License as published by the Free
-   Software Foundation; either version 2, or (at your option) any later
-   version.
+   Bash is free software: you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation, either version 3 of the License, or
+   (at your option) any later version.
 
-   Bash is distributed in the hope that it will be useful, but WITHOUT ANY
-   WARRANTY; without even the implied warranty of MERCHANTABILITY or
-   FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   for more details.
+   Bash is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
 
-   You should have received a copy of the GNU General Public License along
-   with Bash; see the file COPYING.  If not, write to the Free Software
-   Foundation, 59 Temple Place, Suite 330, Boston, MA 02111 USA. */
+   You should have received a copy of the GNU General Public License
+   along with Bash.  If not, see <http://www.gnu.org/licenses/>.
+*/
 
 /* Define PATTERN_MATCHING to get the csh-like =~ and !~ pattern-matching
    binary operators. */
@@ -32,7 +32,7 @@
 
 #include "bashtypes.h"
 
-#if !defined (HAVE_LIMITS_H)
+#if !defined (HAVE_LIMITS_H) && defined (HAVE_SYS_PARAM_H)
 #  include <sys/param.h>
 #endif
 
@@ -50,6 +50,7 @@ extern int errno;
 #endif /* !_POSIX_VERSION */
 #include "posixstat.h"
 #include "filecntl.h"
+#include "stat-time.h"
 
 #include "bashintl.h"
 
@@ -65,8 +66,9 @@ extern int errno;
 #endif
 
 #if !defined (STREQ)
-#  define STREQ(a, b) ((a)[0] == (b)[0] && strcmp (a, b) == 0)
+#  define STREQ(a, b) ((a)[0] == (b)[0] && strcmp ((a), (b)) == 0)
 #endif /* !STREQ */
+#define STRCOLLEQ(a, b) ((a)[0] == (b)[0] && strcoll ((a), (b)) == 0)
 
 #if !defined (R_OK)
 #define R_OK 4
@@ -155,7 +157,7 @@ integer_expected_error (pch)
 }
 
 /* Increment our position in the argument list.  Check that we're not
-   past the end of the argument list.  This check is supressed if the
+   past the end of the argument list.  This check is suppressed if the
    argument is FALSE.  Made a macro for efficiency. */
 #define advance(f) do { ++pos; if (f && pos >= argc) beyond (); } while (0)
 #define unary_advance() do { advance (1); ++pos; } while (0)
@@ -288,19 +290,35 @@ term ()
 }
 
 static int
+stat_mtime (fn, st, ts)
+     char *fn;
+     struct stat *st;
+     struct timespec *ts;
+{
+  int r;
+
+  r = sh_stat (fn, st);
+  if (r < 0)
+    return r;
+  *ts = get_stat_mtime (st);
+  return 0;
+}
+
+static int
 filecomp (s, t, op)
      char *s, *t;
      int op;
 {
   struct stat st1, st2;
+  struct timespec ts1, ts2;
   int r1, r2;
 
-  if ((r1 = sh_stat (s, &st1)) < 0)
+  if ((r1 = stat_mtime (s, &st1, &ts1)) < 0)
     {
       if (op == EF)
 	return (FALSE);
     }
-  if ((r2 = sh_stat (t, &st2)) < 0)
+  if ((r2 = stat_mtime (t, &st2, &ts2)) < 0)
     {
       if (op == EF)
 	return (FALSE);
@@ -308,9 +326,9 @@ filecomp (s, t, op)
   
   switch (op)
     {
-    case OT: return (r1 < r2 || (r2 == 0 && st1.st_mtime < st2.st_mtime));
-    case NT: return (r1 > r2 || (r1 == 0 && st1.st_mtime > st2.st_mtime));
-    case EF: return ((st1.st_dev == st2.st_dev) && (st1.st_ino == st2.st_ino));
+    case OT: return (r1 < r2 || (r2 == 0 && timespec_cmp (ts1, ts2) < 0));
+    case NT: return (r1 > r2 || (r1 == 0 && timespec_cmp (ts1, ts2) > 0));
+    case EF: return (same_file (s, t, &st1, &st2));
     }
   return (FALSE);
 }
@@ -375,12 +393,18 @@ binary_test (op, arg1, arg2, flags)
 
   if (op[0] == '=' && (op[1] == '\0' || (op[1] == '=' && op[2] == '\0')))
     return (patmatch ? patcomp (arg1, arg2, EQ) : STREQ (arg1, arg2));
-
   else if ((op[0] == '>' || op[0] == '<') && op[1] == '\0')
-    return ((op[0] == '>') ? (strcmp (arg1, arg2) > 0) : (strcmp (arg1, arg2) < 0));
-
+    {
+#if defined (HAVE_STRCOLL)
+      if (shell_compatibility_level > 40 && flags & TEST_LOCALE)
+	return ((op[0] == '>') ? (strcoll (arg1, arg2) > 0) : (strcoll (arg1, arg2) < 0));
+      else
+#endif
+	return ((op[0] == '>') ? (strcmp (arg1, arg2) > 0) : (strcmp (arg1, arg2) < 0));
+    }
   else if (op[0] == '!' && op[1] == '=' && op[2] == '\0')
     return (patmatch ? patcomp (arg1, arg2, NE) : (STREQ (arg1, arg2) == 0));
+    
 
   else if (op[2] == 't')
     {
@@ -493,6 +517,7 @@ unary_test (op, arg)
 {
   intmax_t r;
   struct stat stat_buf;
+  SHELL_VAR *v;
      
   switch (op[1])
     {
@@ -594,6 +619,35 @@ unary_test (op, arg)
 
     case 'o':			/* True if option `arg' is set. */
       return (minus_o_option_value (arg) == 1);
+
+    case 'v':
+      v = find_variable (arg);
+#if defined (ARRAY_VARS)
+      if (v == 0 && valid_array_reference (arg))
+	{
+	  char *t;
+	  t = array_value (arg, 0, 0, (int *)0, (arrayind_t *)0);
+	  return (t ? TRUE : FALSE);
+	}
+     else if (v && invisible_p (v) == 0 && array_p (v))
+	{
+	  char *t;
+	  /* [[ -v foo ]] == [[ -v foo[0] ]] */
+	  t = array_reference (array_cell (v), 0);
+	  return (t ? TRUE : FALSE);
+	}
+      else if (v && invisible_p (v) == 0 && assoc_p (v))
+	{
+	  char *t;
+	  t = assoc_reference (assoc_cell (v), "0");
+	  return (t ? TRUE : FALSE);
+	}
+#endif
+      return (v && invisible_p (v) == 0 && var_isset (v) ? TRUE : FALSE);
+
+    case 'R':
+      v = find_variable (arg);
+      return (v && invisible_p (v) == 0 && var_isset (v) && nameref_p (v) ? TRUE : FALSE);
     }
 
   /* We can't actually get here, but this shuts up gcc. */
@@ -659,7 +713,7 @@ int
 test_unop (op)
      char *op;
 {
-  if (op[0] != '-')
+  if (op[0] != '-' || op[2] != 0)
     return (0);
 
   switch (op[1])
@@ -667,7 +721,7 @@ test_unop (op)
     case 'a': case 'b': case 'c': case 'd': case 'e':
     case 'f': case 'g': case 'h': case 'k': case 'n':
     case 'o': case 'p': case 'r': case 's': case 't':
-    case 'u': case 'w': case 'x': case 'z':
+    case 'u': case 'v': case 'w': case 'x': case 'z':
     case 'G': case 'L': case 'O': case 'S': case 'N':
       return (1);
     }
@@ -791,7 +845,7 @@ test_command (margc, margv)
 
   USE_VAR(margc);
 
-  code = setjmp (test_exit_buf);
+  code = setjmp_nosigs (test_exit_buf);
 
   if (code)
     return (test_error_return);

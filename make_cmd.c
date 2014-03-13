@@ -1,23 +1,23 @@
 /* make_cmd.c -- Functions for making instances of the various
    parser constructs. */
 
-/* Copyright (C) 1989-2005 Free Software Foundation, Inc.
+/* Copyright (C) 1989-2009 Free Software Foundation, Inc.
 
-This file is part of GNU Bash, the Bourne Again SHell.
+   This file is part of GNU Bash, the Bourne Again SHell.
 
-Bash is free software; you can redistribute it and/or modify it under
-the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
-version.
+   Bash is free software: you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation, either version 3 of the License, or
+   (at your option) any later version.
 
-Bash is distributed in the hope that it will be useful, but WITHOUT ANY
-WARRANTY; without even the implied warranty of MERCHANTABILITY or
-FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-for more details.
+   Bash is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
 
-You should have received a copy of the GNU General Public License along
-with Bash; see the file COPYING.  If not, write to the Free Software
-Foundation, 59 Temple Place, Suite 330, Boston, MA 02111 USA. */
+   You should have received a copy of the GNU General Public License
+   along with Bash.  If not, see <http://www.gnu.org/licenses/>.
+*/
 
 #include "config.h"
 
@@ -34,6 +34,7 @@ Foundation, 59 Temple Place, Suite 330, Boston, MA 02111 USA. */
 
 #include "bashintl.h"
 
+#include "parser.h"
 #include "syntax.h"
 #include "command.h"
 #include "general.h"
@@ -53,7 +54,7 @@ Foundation, 59 Temple Place, Suite 330, Boston, MA 02111 USA. */
 
 #include "shmbutil.h"
 
-extern int line_number, current_command_line_count;
+extern int line_number, current_command_line_count, parser_state;
 extern int last_command_exit_value;
 
 /* Object caching */
@@ -279,7 +280,7 @@ make_arith_for_command (exprs, action, lineno)
   ARITH_FOR_COM *temp;
   WORD_LIST *init, *test, *step;
   char *s, *t, *start;
-  int nsemi;
+  int nsemi, i;
 
   init = test = step = (WORD_LIST *)NULL;
   /* Parse the string into the three component sub-expressions. */
@@ -291,10 +292,10 @@ make_arith_for_command (exprs, action, lineno)
 	s++;
       start = s;
       /* skip to the semicolon or EOS */
-      while (*s && *s != ';')
-	s++;
+      i = skip_to_delim (start, 0, ";", SD_NOJMP);
+      s = start + i;
 
-      t = (s > start) ? substring (start, 0, s - start) : (char *)NULL;
+      t = (i > 0) ? substring (start, 0, i) : (char *)NULL;
 
       nsemi++;
       switch (nsemi)
@@ -323,6 +324,9 @@ make_arith_for_command (exprs, action, lineno)
       else
 	parser_error (lineno, _("syntax error: `;' unexpected"));
       parser_error (lineno, _("syntax error: `((%s))'"), exprs->word->word);
+      free (init);
+      free (test);
+      free (step);
       last_command_exit_value = 2;
       return ((COMMAND *)NULL);
     }
@@ -528,11 +532,17 @@ make_simple_command (element, command)
   /* If we are starting from scratch, then make the initial command
      structure.  Also note that we have to fill in all the slots, since
      malloc doesn't return zeroed space. */
-  if (!command)
-    command = make_bare_simple_command ();
+  if (command == 0)
+    {
+      command = make_bare_simple_command ();
+      parser_state |= PST_REDIRLIST;
+    }
 
   if (element.word)
-    command->value.Simple->words = make_word_list (element.word, command->value.Simple->words);
+    {
+      command->value.Simple->words = make_word_list (element.word, command->value.Simple->words);
+      parser_state &= ~PST_REDIRLIST;
+    }
   else if (element.redirect)
     {
       REDIRECT *r = element.redirect;
@@ -544,6 +554,7 @@ make_simple_command (element, command)
       r->next = command->value.Simple->redirects;
       command->value.Simple->redirects = element.redirect;
     }
+
   return (command);
 }
 
@@ -553,8 +564,9 @@ make_simple_command (element, command)
    the redirectee.word with the new input text.  If <<- is on,
    then remove leading TABS from each line. */
 void
-make_here_document (temp)
+make_here_document (temp, lineno)
      REDIRECT *temp;
+     int lineno;
 {
   int kill_leading, redir_len;
   char *redir_word, *document, *full_line;
@@ -646,6 +658,9 @@ make_here_document (temp)
       document_index += len;
     }
 
+  if (full_line == 0)
+    internal_warning (_("here-document at line %d delimited by end-of-file (wanted `%s')"), lineno, redir_word);
+
 document_done:
   if (document)
     document[document_index] = '\0';
@@ -661,10 +676,11 @@ document_done:
    INSTRUCTION is the instruction type, SOURCE is a file descriptor,
    and DEST is a file descriptor or a WORD_DESC *. */
 REDIRECT *
-make_redirection (source, instruction, dest_and_filename)
-     int source;
+make_redirection (source, instruction, dest_and_filename, flags)
+     REDIRECTEE source;
      enum r_instruction instruction;
      REDIRECTEE dest_and_filename;
+     int flags;
 {
   REDIRECT *temp;
   WORD_DESC *w;
@@ -678,6 +694,7 @@ make_redirection (source, instruction, dest_and_filename)
   temp->redirectee = dest_and_filename;
   temp->instruction = instruction;
   temp->flags = 0;
+  temp->rflags = flags;
   temp->next = (REDIRECT *)NULL;
 
   switch (instruction)
@@ -685,11 +702,12 @@ make_redirection (source, instruction, dest_and_filename)
 
     case r_output_direction:		/* >foo */
     case r_output_force:		/* >| foo */
-    case r_err_and_out:			/* command &>filename */
+    case r_err_and_out:			/* &>filename */
       temp->flags = O_TRUNC | O_WRONLY | O_CREAT;
       break;
 
     case r_appending_to:		/* >>foo */
+    case r_append_err_and_out:		/* &>> filename */
       temp->flags = O_APPEND | O_WRONLY | O_CREAT;
       break;
 
@@ -771,9 +789,11 @@ make_function_def (name, command, lineno, lstart)
   if (bash_source_a && array_num_elements (bash_source_a) > 0)
     temp->source_file = array_reference (bash_source_a, 0);
 #endif
+#if defined (DEBUGGER)
   bind_function_def (name->word, temp);
+#endif
 
-  temp->source_file = 0;
+  temp->source_file = temp->source_file ? savestring (temp->source_file) : 0;
   return (make_command (cm_function_def, (SIMPLE_COM *)temp));
 }
 
@@ -787,6 +807,20 @@ make_subshell_command (command)
   temp->command = command;
   temp->flags = CMD_WANT_SUBSHELL;
   return (make_command (cm_subshell, (SIMPLE_COM *)temp));
+}
+
+COMMAND *
+make_coproc_command (name, command)
+     char *name;
+     COMMAND *command;
+{
+  COPROC_COM *temp;
+
+  temp = (COPROC_COM *)xmalloc (sizeof (COPROC_COM));
+  temp->name = savestring (name);
+  temp->command = command;
+  temp->flags = CMD_WANT_SUBSHELL|CMD_COPROC_SUBSHELL;
+  return (make_command (cm_coproc, (SIMPLE_COM *)temp));
 }
 
 /* Reverse the word list and redirection list in the simple command
@@ -806,6 +840,7 @@ clean_simple_command (command)
 	REVERSE_LIST (command->value.Simple->redirects, REDIRECT *);
     }
 
+  parser_state &= ~PST_REDIRLIST;
   return (command);
 }
 

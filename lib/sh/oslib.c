@@ -1,27 +1,27 @@
 /* oslib.c - functions present only in some unix versions. */
 
-/* Copyright (C) 1995 Free Software Foundation, Inc.
+/* Copyright (C) 1995,2010 Free Software Foundation, Inc.
 
    This file is part of GNU Bash, the Bourne Again SHell.
 
-   Bash is free software; you can redistribute it and/or modify it under
-   the terms of the GNU General Public License as published by the Free
-   Software Foundation; either version 2, or (at your option) any later
-   version.
+   Bash is free software: you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation, either version 3 of the License, or
+   (at your option) any later version.
 
-   Bash is distributed in the hope that it will be useful, but WITHOUT ANY
-   WARRANTY; without even the implied warranty of MERCHANTABILITY or
-   FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   for more details.
+   Bash is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
 
-   You should have received a copy of the GNU General Public License along
-   with Bash; see the file COPYING.  If not, write to the Free Software
-   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA */
+   You should have received a copy of the GNU General Public License
+   along with Bash.  If not, see <http://www.gnu.org/licenses/>.
+*/
 
 #include <config.h>
 
 #include <bashtypes.h>
-#ifndef _MINIX
+#if defined (HAVE_SYS_PARAM_H)
 #  include <sys/param.h>
 #endif
 
@@ -36,6 +36,10 @@
 #include <posixstat.h>
 #include <filecntl.h>
 #include <bashansi.h>
+
+#if !defined (HAVE_KILLPG)
+#  include <signal.h>
+#endif
 
 #include <stdio.h>
 #include <errno.h>
@@ -120,7 +124,7 @@ dup2 (fd1, fd2)
 /*
  * Return the total number of available file descriptors.
  *
- * On some systems, like 4.2BSD and its descendents, there is a system call
+ * On some systems, like 4.2BSD and its descendants, there is a system call
  * that returns the size of the descriptor table: getdtablesize().  There are
  * lots of ways to emulate this on non-BSD systems.
  *
@@ -209,7 +213,8 @@ gethostname (name, namelen)
 #  else /* !HAVE_UNAME */
 int
 gethostname (name, namelen)
-     int name, namelen;
+     char *name;
+     int namelen;
 {
   strncpy (name, "unknown", namelen);
   name[namelen] = '\0';

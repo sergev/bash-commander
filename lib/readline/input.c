@@ -1,24 +1,24 @@
 /* input.c -- character input functions for readline. */
 
-/* Copyright (C) 1994-2005 Free Software Foundation, Inc.
+/* Copyright (C) 1994-2013 Free Software Foundation, Inc.
 
-   This file is part of the GNU Readline Library, a library for
-   reading lines of text with interactive input and history editing.
+   This file is part of the GNU Readline Library (Readline), a library
+   for reading lines of text with interactive input and history editing.      
 
-   The GNU Readline Library is free software; you can redistribute it
-   and/or modify it under the terms of the GNU General Public License
-   as published by the Free Software Foundation; either version 2, or
+   Readline is free software: you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation, either version 3 of the License, or
    (at your option) any later version.
 
-   The GNU Readline Library is distributed in the hope that it will be
-   useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-   of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   Readline is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
    GNU General Public License for more details.
 
-   The GNU General Public License is often shipped with GNU software, and
-   is generally kept in a file called COPYING or LICENSE.  If you do not
-   have a copy of the license, write to the Free Software Foundation,
-   59 Temple Place, Suite 330, Boston, MA 02111 USA. */
+   You should have received a copy of the GNU General Public License
+   along with Readline.  If not, see <http://www.gnu.org/licenses/>.
+*/
+
 #define READLINE_LIBRARY
 
 #if defined (__TANDEM)
@@ -45,14 +45,9 @@
 #  include "ansi_stdlib.h"
 #endif /* HAVE_STDLIB_H */
 
-#if defined (HAVE_SELECT)
-#  if !defined (HAVE_SYS_SELECT_H) || !defined (M_UNIX)
-#    include <sys/time.h>
-#  endif
-#endif /* HAVE_SELECT */
-#if defined (HAVE_SYS_SELECT_H)
-#  include <sys/select.h>
-#endif
+#include <signal.h>
+
+#include "posixselect.h"
 
 #if defined (FIONREAD_IN_SYS_IOCTL)
 #  include <sys/ioctl.h>
@@ -85,6 +80,13 @@ extern int errno;
    character input. */
 rl_hook_func_t *rl_event_hook = (rl_hook_func_t *)NULL;
 
+/* A function to call if a read(2) is interrupted by a signal. */
+rl_hook_func_t *rl_signal_event_hook = (rl_hook_func_t *)NULL;
+
+/* A function to replace _rl_input_available for applications using the
+   callback interface. */
+rl_hook_func_t *rl_input_available_hook = (rl_hook_func_t *)NULL;
+
 rl_getc_func_t *rl_getc_function = rl_getc;
 
 static int _keyboard_input_timeout = 100000;		/* 0.1 seconds; it's in usec */
@@ -111,6 +113,12 @@ _rl_any_typein ()
   return any_typein;
 }
 
+int
+_rl_pushed_input_available ()
+{
+  return (push_index != pop_index);
+}
+
 /* Return the amount of space available in the buffer for stuffing
    characters. */
 static int
@@ -124,7 +132,7 @@ ibuffer_space ()
 
 /* Get a key from the buffer of characters to be read.
    Return the key in KEY.
-   Result is KEY if there was a key, or 0 if there wasn't. */
+   Result is non-zero if there was a key, or 0 if there wasn't. */
 static int
 rl_get_char (key)
      int *key;
@@ -161,12 +169,6 @@ _rl_unget_char (key)
   return (0);
 }
 
-int
-_rl_pushed_input_available ()
-{
-  return (push_index != pop_index);
-}
-
 /* If a character is available to be read, then read it and stuff it into
    IBUFFER.  Otherwise, just return.  Returns number of characters read
    (0 if none available) and -1 on error (EIO). */
@@ -190,8 +192,7 @@ rl_gather_tyi ()
   FD_ZERO (&exceptfds);
   FD_SET (tty, &readfds);
   FD_SET (tty, &exceptfds);
-  timeout.tv_sec = 0;
-  timeout.tv_usec = _keyboard_input_timeout;
+  USEC_TO_TIMEVAL (_keyboard_input_timeout, timeout);
   result = select (tty + 1, &readfds, (fd_set *)NULL, &exceptfds, &timeout);
   if (result <= 0)
     return 0;	/* Nothing to read. */
@@ -252,6 +253,7 @@ rl_gather_tyi ()
     {
       while (chars_avail--)
 	{
+	  RL_CHECK_SIGNALS ();
 	  k = (*rl_getc_function) (rl_instream);
 	  if (rl_stuff_char (k) == 0)
 	    break;			/* some problem; no more room */
@@ -297,6 +299,9 @@ _rl_input_available ()
   int chars_avail;
 #endif
   int tty;
+
+  if (rl_input_available_hook)
+    return (*rl_input_available_hook) ();
 
   tty = fileno (rl_instream);
 
@@ -358,7 +363,7 @@ _rl_insert_typein (c)
 
   string[i] = '\0';
   rl_insert_text (string);
-  free (string);
+  xfree (string);
 }
 
 /* Add KEY to the buffer of characters to be read.  Returns 1 if the
@@ -416,9 +421,7 @@ rl_clear_pending_input ()
 int
 rl_read_key ()
 {
-  int c;
-
-  rl_key_sequence_length++;
+  int c, r;
 
   if (rl_pending_input)
     {
@@ -434,22 +437,31 @@ rl_read_key ()
       /* If the user has an event function, then call it periodically. */
       if (rl_event_hook)
 	{
-	  while (rl_event_hook && rl_get_char (&c) == 0)
+	  while (rl_event_hook)
 	    {
-	      (*rl_event_hook) ();
-	      if (rl_done)		/* XXX - experimental */
-		return ('\n');
-	      if (rl_gather_tyi () < 0)	/* XXX - EIO */
+	      if (rl_get_char (&c) != 0)
+		break;
+		
+	      if ((r = rl_gather_tyi ()) < 0)	/* XXX - EIO */
 		{
 		  rl_done = 1;
 		  return ('\n');
 		}
+	      else if (r > 0)			/* read something */
+		continue;
+
+	      RL_CHECK_SIGNALS ();
+	      if (rl_done)		/* XXX - experimental */
+		return ('\n');
+	      (*rl_event_hook) ();
 	    }
 	}
       else
 	{
 	  if (rl_get_char (&c) == 0)
 	    c = (*rl_getc_function) (rl_instream);
+/* fprintf(stderr, "rl_read_key: calling RL_CHECK_SIGNALS: _rl_caught_signal = %d", _rl_caught_signal); */
+	  RL_CHECK_SIGNALS ();
 	}
     }
 
@@ -465,6 +477,10 @@ rl_getc (stream)
 
   while (1)
     {
+      RL_CHECK_SIGNALS ();
+
+      /* We know at this point that _rl_caught_signal == 0 */
+
 #if defined (__MINGW32__)
       if (isatty (fileno (stream)))
 	return (getch ());
@@ -506,11 +522,23 @@ rl_getc (stream)
 #undef X_EWOULDBLOCK
 #undef X_EAGAIN
 
-      /* If the error that we received was SIGINT, then try again,
-	 this is simply an interrupted system call to read ().
-	 Otherwise, some error ocurred, also signifying EOF. */
+/* fprintf(stderr, "rl_getc: result = %d errno = %d\n", result, errno); */
+
+      /* If the error that we received was EINTR, then try again,
+	 this is simply an interrupted system call to read ().  We allow
+	 the read to be interrupted if we caught SIGHUP or SIGTERM (but
+	 not SIGINT; let the signal handler deal with that), but if the
+	 application sets an event hook, call it for other signals.
+	 Otherwise (not EINTR), some error occurred, also signifying EOF. */
       if (errno != EINTR)
 	return (RL_ISSTATE (RL_STATE_READCMD) ? READERR : EOF);
+      else if (_rl_caught_signal == SIGHUP || _rl_caught_signal == SIGTERM)
+	return (RL_ISSTATE (RL_STATE_READCMD) ? READERR : EOF);
+      else if (_rl_caught_signal == SIGINT || _rl_caught_signal == SIGQUIT)
+        RL_CHECK_SIGNALS ();
+
+      if (rl_signal_event_hook)
+	(*rl_signal_event_hook) ();
     }
 }
 

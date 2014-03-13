@@ -1,23 +1,23 @@
 /* strmatch.c -- ksh-like extended pattern matching for the shell and filename
 		globbing. */
 
-/* Copyright (C) 1991-2005 Free Software Foundation, Inc.
+/* Copyright (C) 1991-2011 Free Software Foundation, Inc.
 
    This file is part of GNU Bash, the Bourne Again SHell.
    
-   Bash is free software; you can redistribute it and/or modify it under
-   the terms of the GNU General Public License as published by the Free
-   Software Foundation; either version 2, or (at your option) any later
-   version.
-	      
-   Bash is distributed in the hope that it will be useful, but WITHOUT ANY
-   WARRANTY; without even the implied warranty of MERCHANTABILITY or
-   FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   for more details.
-			 
-   You should have received a copy of the GNU General Public License along
-   with Bash; see the file COPYING.  If not, write to the Free Software
-   Foundation, 59 Temple Place, Suite 330, Boston, MA 02111 USA. */
+   Bash is free software: you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation, either version 3 of the License, or
+   (at your option) any later version.
+
+   Bash is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with Bash.  If not, see <http://www.gnu.org/licenses/>.
+*/
 
 #include <config.h>
 
@@ -43,15 +43,25 @@
 #define STREQ(a, b) ((a)[0] == (b)[0] && strcmp(a, b) == 0)
 #define STREQN(a, b, n) ((a)[0] == (b)[0] && strncmp(a, b, n) == 0)
 
+#ifndef GLOBASCII_DEFAULT
+#  define GLOBASCII_DEFAULT 0
+#endif
+
+int glob_asciirange = GLOBASCII_DEFAULT;
+
 /* We use strcoll(3) for range comparisons in bracket expressions,
    even though it can have unwanted side effects in locales
    other than POSIX or US.  For instance, in the de locale, [A-Z] matches
-   all characters. */
+   all characters.  If GLOB_ASCIIRANGE is non-zero, and we're not forcing
+   the use of strcoll (e.g., for explicit collating symbols), we use
+   straight ordering as if in the C locale. */
 
 #if defined (HAVE_STRCOLL)
 /* Helper function for collating symbol equivalence. */
-static int rangecmp (c1, c2)
+static int
+rangecmp (c1, c2, forcecoll)
      int c1, c2;
+     int forcecoll;
 {
   static char s1[2] = { ' ', '\0' };
   static char s2[2] = { ' ', '\0' };
@@ -64,6 +74,9 @@ static int rangecmp (c1, c2)
   if (c1 == c2)
     return (0);
 
+  if (forcecoll == 0 && glob_asciirange)
+    return (c1 - c2);
+
   s1[0] = c1;
   s2[0] = c2;
 
@@ -72,7 +85,7 @@ static int rangecmp (c1, c2)
   return (c1 - c2);
 }
 #else /* !HAVE_STRCOLL */
-#  define rangecmp(c1, c2)	((int)(c1) - (int)(c2))
+#  define rangecmp(c1, c2, f)	((int)(c1) - (int)(c2))
 #endif /* !HAVE_STRCOLL */
 
 #if defined (HAVE_STRCOLL)
@@ -80,7 +93,7 @@ static int
 collequiv (c1, c2)
      int c1, c2;
 {
-  return (rangecmp (c1, c2) == 0);
+  return (rangecmp (c1, c2, 1) == 0);
 }
 #else
 #  define collequiv(c1, c2)	((c1) == (c2))
@@ -214,14 +227,14 @@ is_cclass (c, name)
 #define COLLSYM			collsym
 #define PARSE_COLLSYM		parse_collsym
 #define BRACKMATCH		brackmatch
-#define PATSCAN			patscan
+#define PATSCAN			glob_patscan
 #define STRCOMPARE		strcompare
 #define EXTMATCH		extmatch
 #define STRCHR(S, C)		strchr((S), (C))
 #define STRCOLL(S1, S2)		strcoll((S1), (S2))
 #define STRLEN(S)		strlen(S)
 #define STRCMP(S1, S2)		strcmp((S1), (S2))
-#define RANGECMP(C1, C2)	rangecmp((C1), (C2))
+#define RANGECMP(C1, C2, F)	rangecmp((C1), (C2), (F))
 #define COLLEQUIV(C1, C2)	collequiv((C1), (C2))
 #define CTYPE_T			enum char_class
 #define IS_CCLASS(C, S)		is_cclass((C), (S))
@@ -241,15 +254,21 @@ is_cclass (c, name)
 #  define STREQ(s1, s2) ((wcscmp (s1, s2) == 0))
 #  define STREQN(a, b, n) ((a)[0] == (b)[0] && wcsncmp(a, b, n) == 0)
 
+extern char *mbsmbchar __P((const char *));
+
 static int
-rangecmp_wc (c1, c2)
+rangecmp_wc (c1, c2, forcecoll)
      wint_t c1, c2;
+     int forcecoll;
 {
   static wchar_t s1[2] = { L' ', L'\0' };
   static wchar_t s2[2] = { L' ', L'\0' };
 
   if (c1 == c2)
     return 0;
+
+  if (forcecoll == 0 && glob_asciirange && c1 <= UCHAR_MAX && c2 <= UCHAR_MAX)
+    return ((int)(c1 - c2));
 
   s1[0] = c1;
   s2[0] = c2;
@@ -261,7 +280,7 @@ static int
 collequiv_wc (c, equiv)
      wint_t c, equiv;
 {
-  return (!(c - equiv));
+  return (c == equiv);
 }
 
 /* Helper function for collating symbol. */
@@ -314,7 +333,7 @@ is_wcclass (wc, name)
 
   memset (&state, '\0', sizeof (mbstate_t));
   mbs = (char *) malloc (wcslen(name) * MB_CUR_MAX + 1);
-  mbslength = wcsrtombs(mbs, (const wchar_t **)&name, (wcslen(name) * MB_CUR_MAX + 1), &state);
+  mbslength = wcsrtombs (mbs, (const wchar_t **)&name, (wcslen(name) * MB_CUR_MAX + 1), &state);
 
   if (mbslength == (size_t)-1 || mbslength == (size_t)-2)
     {
@@ -340,14 +359,14 @@ is_wcclass (wc, name)
 #define COLLSYM			collwcsym
 #define PARSE_COLLSYM		parse_collwcsym
 #define BRACKMATCH		brackmatch_wc
-#define PATSCAN			patscan_wc
+#define PATSCAN			glob_patscan_wc
 #define STRCOMPARE		wscompare
 #define EXTMATCH		extmatch_wc
 #define STRCHR(S, C)		wcschr((S), (C))
 #define STRCOLL(S1, S2)		wcscoll((S1), (S2))
 #define STRLEN(S)		wcslen(S)
 #define STRCMP(S1, S2)		wcscmp((S1), (S2))
-#define RANGECMP(C1, C2)	rangecmp_wc((C1), (C2))
+#define RANGECMP(C1, C2, F)	rangecmp_wc((C1), (C2), (F))
 #define COLLEQUIV(C1, C2)	collequiv_wc((C1), (C2))
 #define CTYPE_T			enum char_class
 #define IS_CCLASS(C, S)		is_wcclass((C), (S))
@@ -365,6 +384,10 @@ xstrmatch (pattern, string, flags)
   int ret;
   size_t n;
   wchar_t *wpattern, *wstring;
+  size_t plen, slen, mplen, mslen;
+
+  if (mbsmbchar (string) == 0 && mbsmbchar (pattern) == 0)
+    return (internal_strmatch ((unsigned char *)pattern, (unsigned char *)string, flags));
 
   if (MB_CUR_MAX == 1)
     return (internal_strmatch ((unsigned char *)pattern, (unsigned char *)string, flags));

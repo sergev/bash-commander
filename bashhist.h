@@ -1,22 +1,22 @@
 /* bashhist.h -- interface to the bash history functions in bashhist.c. */
 
-/* Copyright (C) 1993 Free Software Foundation, Inc.
+/* Copyright (C) 1993-2009 Free Software Foundation,  Inc.
 
    This file is part of GNU Bash, the Bourne Again SHell.
 
-   Bash is free software; you can redistribute it and/or modify it under
-   the terms of the GNU General Public License as published by the Free
-   Software Foundation; either version 2, or (at your option) any later
-   version.
+   Bash is free software: you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation, either version 3 of the License, or
+   (at your option) any later version.
 
-   Bash is distributed in the hope that it will be useful, but WITHOUT ANY
-   WARRANTY; without even the implied warranty of MERCHANTABILITY or
-   FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   for more details.
+   Bash is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
 
-   You should have received a copy of the GNU General Public License along
-   with Bash; see the file COPYING.  If not, write to the Free Software
-   Foundation, 59 Temple Place, Suite 330, Boston, MA 02111 USA. */
+   You should have received a copy of the GNU General Public License
+   along with Bash.  If not, see <http://www.gnu.org/licenses/>.
+*/
 
 #if !defined (_BASHHIST_H_)
 #define _BASHHIST_H_
@@ -31,6 +31,9 @@
 #define HC_IGNBOTH	(HC_IGNSPACE|HC_IGNDUPS)
 
 extern int remember_on_history;
+extern int enable_history_list;		/* value for `set -o history' */
+extern int literal_history;		/* controlled by `shopt lithist' */
+extern int force_append_history;
 extern int history_lines_this_session;
 extern int history_lines_in_file;
 extern int history_expansion;
@@ -48,6 +51,9 @@ extern void bash_initialize_history __P((void));
 extern void bash_history_reinit __P((int));
 extern void bash_history_disable __P((void));
 extern void bash_history_enable __P((void));
+extern void bash_clear_history __P((void));
+extern int bash_delete_histent __P((int));
+extern int bash_delete_last_history __P((void));
 extern void load_history __P((void));
 extern void save_history __P((void));
 extern int maybe_append_history __P((char *));

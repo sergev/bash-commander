@@ -4,21 +4,20 @@
 #								            #
 #############################################################################
 
-# Copyright (C) 1994-2005 Free Software Foundation, Inc.
+# Copyright (C) 1994-2012 Free Software Foundation, Inc.
 
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2, or (at your option)
-# any later version.
+#   This program is free software: you can redistribute it and/or modify
+#   it under the terms of the GNU General Public License as published by
+#   the Free Software Foundation, either version 3 of the License, or
+#   (at your option) any later version.
 
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
+#   This program is distributed in the hope that it will be useful,
+#   but WITHOUT ANY WARRANTY; without even the implied warranty of
+#   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#   GNU General Public License for more details.
 
-# You should have received a copy of the GNU General Public License
-# along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111 USA.
+#   You should have received a copy of the GNU General Public License
+#   along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 PACKAGE = @PACKAGE_NAME@
 VERSION = @PACKAGE_VERSION@
@@ -32,6 +31,8 @@ srcdir = @srcdir@
 VPATH = .:@srcdir@
 topdir = @top_srcdir@
 BUILD_DIR = @BUILD_DIR@
+
+datarootdir = @datarootdir@
 
 INSTALL = @INSTALL@
 INSTALL_PROGRAM = @INSTALL_PROGRAM@
@@ -82,22 +83,24 @@ CSOURCES = $(srcdir)/readline.c $(srcdir)/funmap.c $(srcdir)/keymaps.c \
 	   $(srcdir)/histfile.c $(srcdir)/nls.c $(srcdir)/search.c \
 	   $(srcdir)/shell.c $(srcdir)/tilde.c $(srcdir)/savestring.c \
 	   $(srcdir)/text.c $(srcdir)/misc.c $(srcdir)/compat.c \
- 	   $(srcdir)/mbutil.c $(srcdir)/find.c
+	   $(srcdir)/colors.c $(srcdir)/parse-colors.c \
+	   $(srcdir)/mbutil.c $(srcdir)/xfree.c
 
 # The header files for this library.
 HSOURCES = readline.h rldefs.h chardefs.h keymaps.h history.h histlib.h \
 	   posixstat.h posixdir.h posixjmp.h tilde.h rlconf.h rltty.h \
 	   ansi_stdlib.h rlstdc.h tcap.h xmalloc.h rlprivate.h rlshell.h \
-	   rltypedefs.h rlmbutil.h
+	   rltypedefs.h rlmbutil.h colors.h parse-colors.h
 
 HISTOBJ = history.o histexpand.o histfile.o histsearch.o shell.o savestring.o \
 	  mbutil.o
 TILDEOBJ = tilde.o
+COLORSOBJ = colors.o parse-colors.o
 OBJECTS = readline.o vi_mode.o funmap.o keymaps.o parens.o search.o \
 	  rltty.o complete.o bind.o isearch.o display.o signals.o \
 	  util.o kill.o undo.o macro.o input.o callback.o terminal.o \
-	  text.o nls.o misc.o $(HISTOBJ) $(TILDEOBJ) xmalloc.o compat.o \
-		find.o
+	  text.o nls.o misc.o $(HISTOBJ) $(TILDEOBJ) $(COLORSOBJ) \
+	  xmalloc.o xfree.o compat.o 
 
 # The texinfo files which document this library.
 DOCSOURCE = doc/rlman.texinfo doc/rltech.texinfo doc/rluser.texinfo
@@ -123,9 +126,9 @@ libreadline.a: $(OBJECTS)
 	$(AR) $(ARFLAGS) $@ $(OBJECTS)
 	-test -n "$(RANLIB)" && $(RANLIB) $@
 
-libhistory.a: $(HISTOBJ) xmalloc.o
+libhistory.a: $(HISTOBJ) xmalloc.o xfree.o
 	$(RM) $@
-	$(AR) $(ARFLAGS) $@ $(HISTOBJ) xmalloc.o
+	$(AR) $(ARFLAGS) $@ $(HISTOBJ) xmalloc.o xfree.o
 	-test -n "$(RANLIB)" && $(RANLIB) $@
 
 documentation: force
@@ -176,13 +179,12 @@ compat.o: rlstdc.h
 complete.o: ansi_stdlib.h posixdir.h posixstat.h
 complete.o: rldefs.h ${BUILD_DIR}/config.h rlconf.h
 complete.o: readline.h keymaps.h rltypedefs.h chardefs.h tilde.h rlstdc.h
+complete.o: colors.h
 display.o: ansi_stdlib.h posixstat.h
 display.o: rldefs.h ${BUILD_DIR}/config.h rlconf.h
 display.o: tcap.h
 display.o: readline.h keymaps.h rltypedefs.h chardefs.h tilde.h
 display.o: history.h rlstdc.h
-find.o: xmalloc.h 
-find.o: readline.h keymaps.h rltypedefs.h 
 funmap.o: readline.h keymaps.h rltypedefs.h chardefs.h tilde.h
 funmap.o: rlconf.h ansi_stdlib.h rlstdc.h
 funmap.o: ${BUILD_DIR}/config.h
@@ -264,6 +266,15 @@ vi_mode.o: rldefs.h ${BUILD_DIR}/config.h rlconf.h
 vi_mode.o: readline.h keymaps.h rltypedefs.h chardefs.h tilde.h
 vi_mode.o: history.h ansi_stdlib.h rlstdc.h
 xmalloc.o: ${BUILD_DIR}/config.h ansi_stdlib.h
+xfree.o: ${BUILD_DIR}/config.h ansi_stdlib.h
+
+colors.o: ${BUILD_DIR}/config.h colors.h
+colors.o: readline.h keymaps.h rltypedefs.h chardefs.h tilde.h rlstdc.h
+colors.o: rlconf.h
+colors.o: ansi_stdlib.h posixstat.h
+parse-colors.o: ${BUILD_DIR}/config.h colors.h parse-colors.h
+parse-colors.o: rldefs.h rlconf.h
+parse-colors.o: readline.h keymaps.h rltypedefs.h chardefs.h tilde.h rlstdc.h
 
 bind.o: rlshell.h
 histfile.o: rlshell.h
@@ -294,6 +305,8 @@ text.o: rlprivate.h
 undo.o: rlprivate.h
 util.o: rlprivate.h
 vi_mode.o: rlprivate.h
+colors.o: rlprivate.h
+parse-colors.o: rlprivate.h
 
 bind.o: xmalloc.h
 complete.o: xmalloc.h  
@@ -319,7 +332,10 @@ tilde.o: xmalloc.h
 undo.o: xmalloc.h
 util.o: xmalloc.h
 vi_mode.o: xmalloc.h 
+xfree.o: xmalloc.h
 xmalloc.o: xmalloc.h
+colors.o: xmalloc.h
+parse-colors.o: xmalloc.h
 
 complete.o: rlmbutil.h
 display.o: rlmbutil.h
@@ -332,6 +348,8 @@ readline.o: rlmbutil.h
 search.o: rlmbutil.h
 text.o: rlmbutil.h
 vi_mode.o: rlmbutil.h
+colors.o: rlmbutil.h
+parse-colors.o: rlmbutil.h
 
 # Rules for deficient makes, like SunOS and Solaris
 bind.o: bind.c
@@ -361,7 +379,11 @@ tilde.o: tilde.c
 undo.o: undo.c
 util.o: util.c
 vi_mode.o: vi_mode.c
+xfree.o: xfree.c
 xmalloc.o: xmalloc.c
+
+colors.o: colors.c
+parse-colors.o: parse-colors.c
 
 histexpand.o: histexpand.c
 histfile.o: histfile.c

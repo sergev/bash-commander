@@ -1,23 +1,22 @@
-/* pcomplete.c - functions to generate lists of matches for programmable
-		 completion. */
+/* pcomplete.c - functions to generate lists of matches for programmable completion. */
 
-/* Copyright (C) 1999-2005 Free Software Foundation, Inc.
+/* Copyright (C) 1999-2012 Free Software Foundation, Inc.
 
    This file is part of GNU Bash, the Bourne Again SHell.
 
-   Bash is free software; you can redistribute it and/or modify it under
-   the terms of the GNU General Public License as published by the Free
-   Software Foundation; either version 2, or (at your option) any later
-   version.
+   Bash is free software: you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation, either version 3 of the License, or
+   (at your option) any later version.
 
-   Bash is distributed in the hope that it will be useful, but WITHOUT ANY
-   WARRANTY; without even the implied warranty of MERCHANTABILITY or
-   FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   for more details.
+   Bash is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
 
-   You should have received a copy of the GNU General Public License along
-   with Bash; see the file COPYING.  If not, write to the Free Software
-   Foundation, 59 Temple Place, Suite 330, Boston, MA 02111 USA. */
+   You should have received a copy of the GNU General Public License
+   along with Bash.  If not, see <http://www.gnu.org/licenses/>.
+*/
 
 #include <config.h>
 
@@ -38,6 +37,8 @@
 #  include <varargs.h>
 #endif
 
+#include <sys/time.h>
+
 #include <stdio.h>
 #include "bashansi.h"
 #include "bashintl.h"
@@ -57,8 +58,11 @@
 #  include "trap.h"
 #endif
 
+#include "shmbutil.h"
+
 #include "builtins.h"
 #include "builtins/common.h"
+#include "builtins/builtext.h"
 
 #include <glob/glob.h>
 #include <glob/strmatch.h>
@@ -66,6 +70,8 @@
 #include <readline/rlconf.h>
 #include <readline/readline.h>
 #include <readline/history.h>
+
+#define PCOMP_RETRYFAIL	256
 
 #ifdef STRDUP
 #  undef STRDUP
@@ -81,6 +87,7 @@ extern char *strpbrk __P((char *, char *));
 extern int array_needs_making;
 extern STRING_INT_ALIST word_token_alist[];
 extern char *signal_names[];
+extern sh_builtin_func_t *last_shell_builtin, *this_shell_builtin;
 
 #if defined (DEBUG)
 #if defined (PREFER_STDARG)
@@ -98,6 +105,7 @@ static int it_init_disabled __P((ITEMLIST *));
 static int it_init_enabled __P((ITEMLIST *));
 static int it_init_exported __P((ITEMLIST *));
 static int it_init_functions __P((ITEMLIST *));
+static int it_init_helptopics __P((ITEMLIST *));
 static int it_init_hostnames __P((ITEMLIST *));
 static int it_init_jobs __P((ITEMLIST *));
 static int it_init_running __P((ITEMLIST *));
@@ -118,10 +126,18 @@ static STRINGLIST *gen_action_completions __P((COMPSPEC *, const char *));
 static STRINGLIST *gen_globpat_matches __P((COMPSPEC *, const char *));
 static STRINGLIST *gen_wordlist_matches __P((COMPSPEC *, const char *));
 static STRINGLIST *gen_shell_function_matches __P((COMPSPEC *, const char *,
+						   const char *,
 						   char *, int, WORD_LIST *,
-						   int, int));
-static STRINGLIST *gen_command_matches __P((COMPSPEC *, const char *, char *,
-					    int, WORD_LIST *, int, int));
+						   int, int, int *));
+static STRINGLIST *gen_command_matches __P((COMPSPEC *, const char *,
+					    const char *,
+					    char *, int, WORD_LIST *,
+					    int, int));
+
+static STRINGLIST *gen_progcomp_completions __P((const char *, const char *,
+						 const char *,
+						 int, int, int *, int *,
+						 COMPSPEC **));
 
 static char *pcomp_filename_completion_function __P((const char *, int));
 
@@ -130,7 +146,7 @@ static SHELL_VAR *bind_comp_words __P((WORD_LIST *));
 #endif
 static void bind_compfunc_variables __P((char *, int, WORD_LIST *, int, int));
 static void unbind_compfunc_variables __P((int));
-static WORD_LIST *build_arg_list __P((char *, const char *, WORD_LIST *, int));
+static WORD_LIST *build_arg_list __P((char *, const char *, const char *, WORD_LIST *, int));
 static WORD_LIST *command_line_to_word_list __P((char *, int, int, int *, int *));
 
 #ifdef DEBUG
@@ -151,6 +167,7 @@ ITEMLIST it_enabled = { 0, it_init_enabled, (STRINGLIST *)0 };
 ITEMLIST it_exports  = { LIST_DYNAMIC, it_init_exported, (STRINGLIST *)0 };
 ITEMLIST it_files = { LIST_DYNAMIC };		/* unused */
 ITEMLIST it_functions  = { 0, it_init_functions, (STRINGLIST *)0 };
+ITEMLIST it_helptopics  = { 0, it_init_helptopics, (STRINGLIST *)0 };
 ITEMLIST it_hostnames  = { LIST_DYNAMIC, it_init_hostnames, (STRINGLIST *)0 };
 ITEMLIST it_groups = { LIST_DYNAMIC };		/* unused */
 ITEMLIST it_jobs = { LIST_DYNAMIC, it_init_jobs, (STRINGLIST *)0 };
@@ -163,6 +180,9 @@ ITEMLIST it_signals = { 0, it_init_signals, (STRINGLIST *)0 };
 ITEMLIST it_stopped = { LIST_DYNAMIC, it_init_stopped, (STRINGLIST *)0 };
 ITEMLIST it_users = { LIST_DYNAMIC };		/* unused */
 ITEMLIST it_variables = { LIST_DYNAMIC, it_init_variables, (STRINGLIST *)0 };
+
+COMPSPEC *pcomp_curcs;
+const char *pcomp_curcmd;
 
 #ifdef DEBUG
 /* Debugging code */
@@ -359,6 +379,7 @@ it_init_aliases (itp)
 #else
   itp->slist = (STRINGLIST *)NULL;
 #endif
+  free (alias_list);
   return 1;
 }
 
@@ -488,6 +509,24 @@ it_init_functions (itp)
   return 0;
 }
 
+/* Like it_init_builtins, but includes everything the help builtin looks at,
+   not just builtins with an active implementing function. */
+static int
+it_init_helptopics (itp)
+     ITEMLIST *itp;
+{
+  STRINGLIST *sl;
+  register int i, n;
+
+  sl = strlist_create (num_shell_builtins);
+  for (i = n = 0; i < num_shell_builtins; i++)
+    sl->list[n++] = shell_builtins[i].name;
+  sl->list[sl->list_len = n] = (char *)NULL;
+  itp->flags |= LIST_DONTFREEMEMBERS;
+  itp->slist = sl;
+  return 0;
+}
+
 static int
 it_init_hostnames (itp)
      ITEMLIST *itp;
@@ -516,6 +555,7 @@ it_init_joblist (itp, jstate)
   JOB *j;
   JOB_STATE ws;		/* wanted state */
 
+  ws = JNONE;
   if (jstate == 0)
     ws = JRUNNING;
   else if (jstate == 1)
@@ -650,7 +690,7 @@ gen_matches_from_itemlist (itp, text)
   if ((itp->flags & (LIST_DIRTY|LIST_DYNAMIC)) ||
       (itp->flags & LIST_INITIALIZED) == 0)
     {
-      if (itp->flags & (LIST_DIRTY | LIST_DYNAMIC))
+      if (itp->flags & (LIST_DIRTY|LIST_DYNAMIC))
 	clean_itemlist (itp);
       if ((itp->flags & LIST_INITIALIZED) == 0)
 	initialize_itemlist (itp);
@@ -683,23 +723,35 @@ pcomp_filename_completion_function (text, state)
 {
   static char *dfn;	/* dequoted filename */
   int qc;
+  int iscompgen, iscompleting;
 
   if (state == 0)
     {
       FREE (dfn);
       /* remove backslashes quoting special characters in filenames. */
-      if (rl_filename_dequoting_function)
+      /* There are roughly three paths we can follow to get here:
+		1.  complete -f
+		2.  compgen -f "$word" from a completion function
+		3.  compgen -f "$word" from the command line
+	 They all need to be handled.
+
+	 In the first two cases, readline will run the filename dequoting
+	 function in rl_filename_completion_function if it found a filename
+	 quoting character in the word to be completed
+	 (rl_completion_found_quote).  We run the dequoting function here
+	 if we're running compgen, we're not completing, and the
+	 rl_filename_completion_function won't dequote the filename
+	 (rl_completion_found_quote == 0). */
+      iscompgen = this_shell_builtin == compgen_builtin;
+      iscompleting = RL_ISSTATE (RL_STATE_COMPLETING);
+      if (iscompgen && iscompleting == 0 && rl_completion_found_quote == 0
+	  && rl_filename_dequoting_function)
 	{
-#if 0
-	  qc = (text[0] == '"' || text[0] == '\'') ? text[0] : 0;
-#else
 	  /* Use rl_completion_quote_character because any single or
 	     double quotes have been removed by the time TEXT makes it
 	     here, and we don't want to remove backslashes inside
 	     quoted strings. */
-	  qc = rl_dispatching ? rl_completion_quote_character : 0;
-#endif
-	  dfn = (*rl_filename_dequoting_function) ((char *)text, qc);
+	  dfn = (*rl_filename_dequoting_function) ((char *)text, rl_completion_quote_character);
 	}
       else
 	dfn = savestring (text);
@@ -743,6 +795,7 @@ gen_action_completions (cs, text)
   STRINGLIST *ret, *tmatches;
   char **cmatches;	/* from rl_completion_matches ... */
   unsigned long flags;
+  int t;
 
   ret = tmatches = (STRINGLIST *)NULL;
   flags = cs->actions;
@@ -755,6 +808,7 @@ gen_action_completions (cs, text)
   GEN_COMPS (flags, CA_ENABLED, &it_enabled, text, ret, tmatches);
   GEN_COMPS (flags, CA_EXPORT, &it_exports, text, ret, tmatches);
   GEN_COMPS (flags, CA_FUNCTION, &it_functions, text, ret, tmatches);
+  GEN_COMPS (flags, CA_HELPTOPIC, &it_helptopics, text, ret, tmatches);
   GEN_COMPS (flags, CA_HOSTNAME, &it_hostnames, text, ret, tmatches);
   GEN_COMPS (flags, CA_JOB, &it_jobs, text, ret, tmatches);
   GEN_COMPS (flags, CA_KEYWORD, &it_keywords, text, ret, tmatches);
@@ -774,8 +828,15 @@ gen_action_completions (cs, text)
   /* And lastly, the special case for directories */
   if (flags & CA_DIRECTORY)
     {
+      t = rl_filename_completion_desired;
       rl_completion_mark_symlink_dirs = 1;	/* override user preference */
       cmatches = bash_directory_completion_matches (text);
+      /* If we did not want filename completion before this, and there are
+	 no matches, turn off rl_filename_completion_desired so whatever
+	 matches we get are not treated as filenames (it gets turned on by
+	 rl_filename_completion_function unconditionally). */
+      if (t == 0 && cmatches == 0 && rl_filename_completion_desired == 1)
+        rl_filename_completion_desired = 0;
       tmatches = completions_to_stringlist (cmatches);
       ret = strlist_append (ret, tmatches);
       strvec_dispose (cmatches);
@@ -824,8 +885,11 @@ gen_wordlist_matches (cs, text)
   /* This used to be a simple expand_string(cs->words, 0), but that won't
      do -- there's no way to split a simple list into individual words
      that way, since the shell semantics say that word splitting is done
-     only on the results of expansion. */
-  l = split_at_delims (cs->words, strlen (cs->words), (char *)NULL, -1, (int *)NULL, (int *)NULL);
+     only on the results of expansion.  split_at_delims also handles embedded
+     quoted strings and preserves the quotes for the expand_words_shellexp
+     function call that follows. */
+  /* XXX - this is where this function spends most of its time */
+  l = split_at_delims (cs->words, strlen (cs->words), (char *)NULL, -1, 0, (int *)NULL, (int *)NULL);
   if (l == 0)
     return ((STRINGLIST *)NULL);
   /* This will jump back to the top level if the expansion fails... */
@@ -882,6 +946,8 @@ bind_compfunc_variables (line, ind, lwords, cw, exported)
   char ibuf[INT_STRLEN_BOUND(int) + 1];
   char *value;
   SHELL_VAR *v;
+  size_t llen;
+  int c;
 
   /* Set the variables that the function expects while it executes.  Maybe
      these should be in the function environment (temporary_env). */
@@ -889,8 +955,23 @@ bind_compfunc_variables (line, ind, lwords, cw, exported)
   if (v && exported)
     VSETATTR(v, att_exported);
 
-  value = inttostr (ind, ibuf, sizeof(ibuf));
+  /* Post bash-4.2: COMP_POINT is characters instead of bytes. */
+  c = line[ind];
+  line[ind] = '\0';
+  llen = MB_STRLEN (line);
+  line[ind] = c;
+  value = inttostr (llen, ibuf, sizeof(ibuf));
   v = bind_int_variable ("COMP_POINT", value);
+  if (v && exported)
+    VSETATTR(v, att_exported);
+
+  value = inttostr (rl_completion_type, ibuf, sizeof (ibuf));
+  v = bind_int_variable ("COMP_TYPE", value);
+  if (v && exported)
+    VSETATTR(v, att_exported);
+
+  value = inttostr (rl_completion_invoking_key, ibuf, sizeof (ibuf));
+  v = bind_int_variable ("COMP_KEY", value);
   if (v && exported)
     VSETATTR(v, att_exported);
 
@@ -914,6 +995,8 @@ unbind_compfunc_variables (exported)
 {
   unbind_variable ("COMP_LINE");
   unbind_variable ("COMP_POINT");
+  unbind_variable ("COMP_TYPE");
+  unbind_variable ("COMP_KEY");
 #ifdef ARRAY_VARS
   unbind_variable ("COMP_WORDS");
   unbind_variable ("COMP_CWORD");
@@ -927,15 +1010,17 @@ unbind_compfunc_variables (exported)
 
 	$0 == function or command being invoked
    	$1 == command name
-   	$2 = word to be completed (possibly null)
-   	$3 = previous word
+   	$2 == word to be completed (possibly null)
+   	$3 == previous word
 
    Functions can access all of the words in the current command line
-   with the COMP_WORDS array.  External commands cannot. */
+   with the COMP_WORDS array.  External commands cannot; they have to
+   make do with the COMP_LINE and COMP_POINT variables. */
 
 static WORD_LIST *
-build_arg_list (cmd, text, lwords, ind)
+build_arg_list (cmd, cname, text, lwords, ind)
      char *cmd;
+     const char *cname;
      const char *text;
      WORD_LIST *lwords;
      int ind;
@@ -946,13 +1031,13 @@ build_arg_list (cmd, text, lwords, ind)
 
   ret = (WORD_LIST *)NULL;
   w = make_word (cmd);
-  ret = make_word_list (w, (WORD_LIST *)NULL);
+  ret = make_word_list (w, (WORD_LIST *)NULL);	/* $0 */
 
-  w = (lwords && lwords->word) ? copy_word (lwords->word) : make_word ("");
+  w = make_word (cname);			/* $1 */
   cl = ret->next = make_word_list (w, (WORD_LIST *)NULL);
 
   w = make_word (text);
-  cl->next = make_word_list (w, (WORD_LIST *)NULL);
+  cl->next = make_word_list (w, (WORD_LIST *)NULL);	/* $2 */
   cl = cl->next;
 
   /* Search lwords for current word */
@@ -977,23 +1062,30 @@ build_arg_list (cmd, text, lwords, ind)
    variable, this does nothing if arrays are not compiled into the shell. */
 
 static STRINGLIST *
-gen_shell_function_matches (cs, text, line, ind, lwords, nw, cw)
+gen_shell_function_matches (cs, cmd, text, line, ind, lwords, nw, cw, foundp)
      COMPSPEC *cs;
+     const char *cmd;
      const char *text;
      char *line;
      int ind;
      WORD_LIST *lwords;
      int nw, cw;
+     int *foundp;
 {
   char *funcname;
   STRINGLIST *sl;
   SHELL_VAR *f, *v;
   WORD_LIST *cmdlist;
-  int fval;
+  int fval, found;
   sh_parser_state_t ps;
+  sh_parser_state_t * restrict pps;
 #if defined (ARRAY_VARS)
   ARRAY *a;
 #endif
+
+  found = 0;
+  if (foundp)
+    *foundp = found;
 
   funcname = cs->funcname;
   f = find_function (funcname);
@@ -1013,11 +1105,25 @@ gen_shell_function_matches (cs, text, line, ind, lwords, nw, cw)
      1-based, while bash arrays are 0-based. */
   bind_compfunc_variables (line, ind, lwords, cw - 1, 0);
 
-  cmdlist = build_arg_list (funcname, text, lwords, cw);
+  cmdlist = build_arg_list (funcname, cmd, text, lwords, cw);
 
-  save_parser_state (&ps);  
+  pps = &ps;
+  save_parser_state (pps);
+  begin_unwind_frame ("gen-shell-function-matches");
+  add_unwind_protect (restore_parser_state, (char *)pps);
+  add_unwind_protect (dispose_words, (char *)cmdlist);
+  add_unwind_protect (unbind_compfunc_variables, (char *)0);
+
   fval = execute_shell_function (f, cmdlist);  
-  restore_parser_state (&ps);
+
+  discard_unwind_frame ("gen-shell-function-matches");
+  restore_parser_state (pps);
+
+  found = fval != EX_NOTFOUND;
+  if (fval == EX_RETRYFAIL)
+    found |= PCOMP_RETRYFAIL;
+  if (foundp)
+    *foundp = found;
 
   /* Now clean up and destroy everything. */
   dispose_words (cmdlist);
@@ -1033,7 +1139,7 @@ gen_shell_function_matches (cs, text, line, ind, lwords, nw, cw)
   VUNSETATTR (v, att_invisible);
 
   a = array_cell (v);
-  if (a == 0 || array_empty (a))
+  if (found == 0 || (found & PCOMP_RETRYFAIL) || a == 0 || array_empty (a))
     sl = (STRINGLIST *)NULL;
   else
     {
@@ -1061,8 +1167,9 @@ gen_shell_function_matches (cs, text, line, ind, lwords, nw, cw)
    STRINGLIST from the results and return it. */
 
 static STRINGLIST *
-gen_command_matches (cs, text, line, ind, lwords, nw, cw)
+gen_command_matches (cs, cmd, text, line, ind, lwords, nw, cw)
      COMPSPEC *cs;
+     const char *cmd;
      const char *text;
      char *line;
      int ind;
@@ -1072,10 +1179,11 @@ gen_command_matches (cs, text, line, ind, lwords, nw, cw)
   char *csbuf, *cscmd, *t;
   int cmdlen, cmdsize, n, ws, we;
   WORD_LIST *cmdlist, *cl;
+  WORD_DESC *tw;
   STRINGLIST *sl;
 
   bind_compfunc_variables (line, ind, lwords, cw, 1);
-  cmdlist = build_arg_list (cs->command, text, lwords, cw);
+  cmdlist = build_arg_list (cs->command, cmd, text, lwords, cw);
 
   /* Estimate the size needed for the buffer. */
   n = strlen (cs->command);
@@ -1103,7 +1211,10 @@ gen_command_matches (cs, text, line, ind, lwords, nw, cw)
     }
   cscmd[cmdlen] = '\0';
 
-  csbuf = command_substitute (cscmd, 0);
+  tw = command_substitute (cscmd, 0);
+  csbuf = tw ? tw->word : (char *)NULL;
+  if (tw)
+    dispose_word_desc (tw);
 
   /* Now clean up and destroy everything. */
   dispose_words (cmdlist);
@@ -1149,25 +1260,33 @@ command_line_to_word_list (line, llen, sentinel, nwp, cwp)
   WORD_LIST *ret;
   char *delims;
 
+#if 0
   delims = "()<>;&| \t\n";	/* shell metacharacters break words */
-  ret = split_at_delims (line, llen, delims, sentinel, nwp, cwp);
+#else
+  delims = rl_completer_word_break_characters;
+#endif
+  ret = split_at_delims (line, llen, delims, sentinel, SD_NOQUOTEDELIM, nwp, cwp);
   return (ret);
 }
 
 /* Evaluate COMPSPEC *cs and return all matches for WORD. */
 
 STRINGLIST *
-gen_compspec_completions (cs, cmd, word, start, end)
+gen_compspec_completions (cs, cmd, word, start, end, foundp)
      COMPSPEC *cs;
      const char *cmd;
      const char *word;
      int start, end;
+     int *foundp;
 {
   STRINGLIST *ret, *tmatches;
   char *line;
-  int llen, nw, cw;
+  int llen, nw, cw, found, foundf;
   WORD_LIST *lwords;
+  WORD_DESC *lw;
   COMPSPEC *tcs;
+
+  found = 1;
 
 #ifdef DEBUG
   debug_printf ("gen_compspec_completions (%s, %s, %d, %d)", cmd, word, start, end);
@@ -1236,6 +1355,14 @@ gen_compspec_completions (cs, cmd, word, start, end)
 		line, llen, rl_point - start, &nw, &cw);
 #endif
       lwords = command_line_to_word_list (line, llen, rl_point - start, &nw, &cw);
+      /* If we skipped a NULL word at the beginning of the line, add it back */
+      if (lwords && lwords->word && cmd[0] == 0 && lwords->word->word[0] != 0)
+	{
+	  lw = make_bare_word (cmd);
+	  lwords = make_word_list (lw, lwords);
+	  nw++;
+	  cw++;
+	}
 #ifdef DEBUG
       if (lwords == 0 && llen > 0)
 	debug_printf ("ERROR: command_line_to_word_list returns NULL");
@@ -1253,13 +1380,16 @@ gen_compspec_completions (cs, cmd, word, start, end)
 
   if (cs->funcname)
     {
-      tmatches = gen_shell_function_matches (cs, word, line, rl_point - start, lwords, nw, cw);
+      foundf = 0;
+      tmatches = gen_shell_function_matches (cs, cmd, word, line, rl_point - start, lwords, nw, cw, &foundf);
+      if (foundf != 0)
+	found = foundf;
       if (tmatches)
 	{
 #ifdef DEBUG
 	  if (progcomp_debug)
 	    {
-	      debug_printf ("gen_shell_function_matches (%p, %s, %p, %d, %d) -->", cs, word, lwords, nw, cw);
+	      debug_printf ("gen_shell_function_matches (%p, %s, %s, %p, %d, %d) -->", cs, cmd, word, lwords, nw, cw);
 	      strlist_print (tmatches, "\t");
 	      rl_on_new_line ();
 	    }
@@ -1271,13 +1401,13 @@ gen_compspec_completions (cs, cmd, word, start, end)
 
   if (cs->command)
     {
-      tmatches = gen_command_matches (cs, word, line, rl_point - start, lwords, nw, cw);
+      tmatches = gen_command_matches (cs, cmd, word, line, rl_point - start, lwords, nw, cw);
       if (tmatches)
 	{
 #ifdef DEBUG
 	  if (progcomp_debug)
 	    {
-	      debug_printf ("gen_command_matches (%p, %s, %p, %d, %d) -->", cs, word, lwords, nw, cw);
+	      debug_printf ("gen_command_matches (%p, %s, %s, %p, %d, %d) -->", cs, cmd, word, lwords, nw, cw);
 	      strlist_print (tmatches, "\t");
 	      rl_on_new_line ();
 	    }
@@ -1292,6 +1422,15 @@ gen_compspec_completions (cs, cmd, word, start, end)
       if (lwords)
 	dispose_words (lwords);
       FREE (line);
+    }
+
+  if (foundp)
+    *foundp = found;
+
+  if (found == 0 || (found & PCOMP_RETRYFAIL))
+    {
+      strlist_dispose (ret);
+      return NULL;
     }
 
   if (cs->filterpat)
@@ -1324,6 +1463,7 @@ gen_compspec_completions (cs, cmd, word, start, end)
     {
       tcs = compspec_create ();
       tcs->actions = CA_DIRECTORY;
+      FREE (ret);
       ret = gen_action_completions (tcs, word);
       compspec_dispose (tcs);
     }
@@ -1340,6 +1480,94 @@ gen_compspec_completions (cs, cmd, word, start, end)
   return (ret);
 }
 
+void
+pcomp_set_readline_variables (flags, nval)
+     int flags, nval;
+{
+  /* If the user specified that the compspec returns filenames, make
+     sure that readline knows it. */
+  if (flags & COPT_FILENAMES)
+    rl_filename_completion_desired = nval;
+  /* If the user doesn't want a space appended, tell readline. */
+  if (flags & COPT_NOSPACE)
+    rl_completion_suppress_append = nval;
+  /* The value here is inverted, since the default is on and the `noquote'
+     option is supposed to turn it off */
+  if (flags & COPT_NOQUOTE)
+    rl_filename_quoting_desired = 1 - nval;
+}
+
+/* Set or unset FLAGS in the options word of the current compspec.
+   SET_OR_UNSET is 1 for setting, 0 for unsetting. */
+void
+pcomp_set_compspec_options (cs, flags, set_or_unset)
+     COMPSPEC *cs;
+     int flags, set_or_unset;
+{
+  if (cs == 0 && ((cs = pcomp_curcs) == 0))
+    return;
+  if (set_or_unset)
+    cs->options |= flags;
+  else
+    cs->options &= ~flags;
+}
+
+static STRINGLIST *
+gen_progcomp_completions (ocmd, cmd, word, start, end, foundp, retryp, lastcs)
+     const char *ocmd;
+     const char *cmd;
+     const char *word;
+     int start, end;
+     int *foundp, *retryp;
+     COMPSPEC **lastcs;
+{
+  COMPSPEC *cs, *oldcs;
+  const char *oldcmd;
+  STRINGLIST *ret;
+
+  cs = progcomp_search (ocmd);
+
+  if (cs == 0 || cs == *lastcs)
+    {
+#if 0
+      if (foundp)
+	*foundp = 0;
+#endif
+      return (NULL);
+    }
+
+  if (*lastcs)
+    compspec_dispose (*lastcs);
+  cs->refcount++;	/* XXX */
+  *lastcs = cs;
+
+  cs = compspec_copy (cs);
+
+  oldcs = pcomp_curcs;
+  oldcmd = pcomp_curcmd;
+
+  pcomp_curcs = cs;
+  pcomp_curcmd = cmd;
+
+  ret = gen_compspec_completions (cs, cmd, word, start, end, foundp);
+
+  pcomp_curcs = oldcs;
+  pcomp_curcmd = oldcmd;
+
+  /* We need to conditionally handle setting *retryp here */
+  if (retryp)
+    *retryp = foundp && (*foundp & PCOMP_RETRYFAIL);    	
+
+  if (foundp)
+    {
+      *foundp &= ~PCOMP_RETRYFAIL;
+      *foundp |= cs->options;
+    }
+
+  compspec_dispose (cs);
+  return ret;  
+}
+
 /* The driver function for the programmable completion code.  Returns a list
    of matches for WORD, which is an argument to command CMD.  START and END
    bound the command currently being completed in rl_line_buffer. */
@@ -1349,36 +1577,40 @@ programmable_completions (cmd, word, start, end, foundp)
      const char *word;
      int start, end, *foundp;
 {
-  COMPSPEC *cs;
+  COMPSPEC *cs, *lastcs;
   STRINGLIST *ret;
   char **rmatches, *t;
+  int found, retry, count;
 
-  /* We look at the basename of CMD if the full command does not have
-     an associated COMPSPEC. */
-  cs = progcomp_search (cmd);
-  if (cs == 0)
+  lastcs = 0;
+  found = count = 0;
+
+  do
     {
-      t = strrchr (cmd, '/');
-      if (t)
-	cs = progcomp_search (++t);
+      retry = 0;
+
+      /* We look at the basename of CMD if the full command does not have
+	 an associated COMPSPEC. */
+      ret = gen_progcomp_completions (cmd, cmd, word, start, end, &found, &retry, &lastcs);
+      if (found == 0)
+	{
+	  t = strrchr (cmd, '/');
+	  if (t && *(++t))
+	    ret = gen_progcomp_completions (t, cmd, word, start, end, &found, &retry, &lastcs);
+	}
+
+      if (found == 0)
+	ret = gen_progcomp_completions (DEFAULTCMD, cmd, word, start, end, &found, &retry, &lastcs);
+
+      count++;
+
+      if (count > 32)
+	{
+	  internal_warning ("programmable_completion: %s: possible retry loop", cmd);
+	  break;
+	}
     }
-  if (cs == 0)
-    {
-      if (foundp)
-	*foundp = 0;
-      return ((char **)NULL);
-    }
-
-  cs = compspec_copy (cs);
-
-  /* Signal the caller that we found a COMPSPEC for this command, and pass
-     back any meta-options associated with the compspec. */
-  if (foundp)
-    *foundp = 1|cs->options;
-
-  ret = gen_compspec_completions (cs, cmd, word, start, end);
-
-  compspec_dispose (cs);
+  while (retry);
 
   if (ret)
     {
@@ -1387,6 +1619,12 @@ programmable_completions (cmd, word, start, end, foundp)
     }
   else
     rmatches = (char **)NULL;
+
+  if (foundp)
+    *foundp = found;
+
+  if (lastcs)	/* XXX - should be while? */
+    compspec_dispose (lastcs);
 
   return (rmatches);
 }

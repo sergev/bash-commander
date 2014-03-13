@@ -1,22 +1,22 @@
 /* input.c -- functions to perform buffered input with synchronization. */
 
-/* Copyright (C) 1992 Free Software Foundation, Inc.
+/* Copyright (C) 1992-2009 Free Software Foundation, Inc.
 
    This file is part of GNU Bash, the Bourne Again SHell.
 
-   Bash is free software; you can redistribute it and/or modify it under
-   the terms of the GNU General Public License as published by the Free
-   Software Foundation; either version 2, or (at your option) any later
-   version.
+   Bash is free software: you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation, either version 3 of the License, or
+   (at your option) any later version.
 
-   Bash is distributed in the hope that it will be useful, but WITHOUT ANY
-   WARRANTY; without even the implied warranty of MERCHANTABILITY or
-   FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   for more details.
+   Bash is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
 
-   You should have received a copy of the GNU General Public License along
-   with Bash; see the file COPYING.  If not, write to the Free Software
-   Foundation, 59 Temple Place, Suite 330, Boston, MA 02111 USA. */
+   You should have received a copy of the GNU General Public License
+   along with Bash.  If not, see <http://www.gnu.org/licenses/>.
+*/
 
 #include "config.h"
 
@@ -42,10 +42,23 @@
 #include "error.h"
 #include "externs.h"
 #include "quit.h"
+#include "trap.h"
 
 #if !defined (errno)
 extern int errno;
 #endif /* !errno */
+
+#if defined (EAGAIN)
+#  define X_EAGAIN EAGAIN
+#else
+#  define X_EAGAIN -99
+#endif
+
+#if defined (EWOULDBLOCK)
+#  define X_EWOULDBLOCK EWOULDBLOCK
+#else
+#  define X_EWOULDBLOCK -99
+#endif
 
 extern void termsig_handler __P((int));
 
@@ -71,15 +84,34 @@ getc_with_restart (stream)
     {
       while (1)
 	{
-	  CHECK_TERMSIG;
+	  QUIT;
+	  run_pending_traps ();
+
 	  local_bufused = read (fileno (stream), localbuf, sizeof(localbuf));
 	  if (local_bufused > 0)
 	    break;
-	  else if (local_bufused == 0 || errno != EINTR)
+	  else if (local_bufused == 0)
 	    {
 	      local_index = 0;
 	      return EOF;
 	    }
+	  else if (errno == X_EAGAIN || errno == X_EWOULDBLOCK)
+	    {
+	      if (sh_unset_nodelay_mode (fileno (stream)) < 0)
+		{
+		  sys_error (_("cannot reset nodelay mode for fd %d"), fileno (stream));
+		  local_index = local_bufused = 0;
+		  return EOF;
+		}
+	      continue;
+	    }
+	  else if (errno != EINTR)
+	    {
+	      local_index = local_bufused = 0;
+	      return EOF;
+	    }
+	  else if (interrupt_state || terminating_signal)	/* QUIT; */
+	    local_index = local_bufused = 0;
 	}
       local_index = 0;
     }
@@ -172,6 +204,8 @@ make_buffered_stream (fd, buffer, bufsize)
   bp->b_used = bp->b_inputp = bp->b_flag = 0;
   if (bufsize == 1)
     bp->b_flag |= B_UNBUFF;
+  if (O_TEXT && (fcntl (fd, F_GETFL) & O_TEXT) != 0)
+    bp->b_flag |= O_TEXT;
   return (bp);
 }
 
@@ -278,7 +312,7 @@ save_bash_input (fd, new_fd)
    the buffered stream.  Make sure the file descriptor used to save bash
    input is set close-on-exec. Returns 0 on success, -1 on failure.  This
    works only if fd is > 0 -- if fd == 0 and bash is reading input from
-   fd 0, save_bash_input is used instead, to cooperate with input
+   fd 0, sync_buffered_stream is used instead, to cooperate with input
    redirection (look at redir.c:add_undo_redirect()). */
 int
 check_bash_input (fd)
@@ -340,11 +374,7 @@ duplicate_buffered_stream (fd1, fd2)
 }
 
 /* Return 1 if a seek on FD will succeed. */
-#ifndef __CYGWIN__
-#  define fd_is_seekable(fd) (lseek ((fd), 0L, SEEK_CUR) >= 0)
-#else
-#  define fd_is_seekable(fd) 0
-#endif /* __CYGWIN__ */
+#define fd_is_seekable(fd) (lseek ((fd), 0L, SEEK_CUR) >= 0)
 
 /* Take FD, a file descriptor, and create and return a buffered stream
    corresponding to it.  If something is wrong and the file descriptor
@@ -431,7 +461,7 @@ close_buffered_fd (fd)
   return (close_buffered_stream (buffers[fd]));
 }
 
-/* Make the BUFFERED_STREAM associcated with buffers[FD] be BP, and return
+/* Make the BUFFERED_STREAM associated with buffers[FD] be BP, and return
    the old BUFFERED_STREAM. */
 BUFFERED_STREAM *
 set_buffered_stream (fd, bp)
@@ -451,9 +481,27 @@ b_fill_buffer (bp)
      BUFFERED_STREAM *bp;
 {
   ssize_t nr;
+  off_t o;
 
   CHECK_TERMSIG;
-  nr = zread (bp->b_fd, bp->b_buffer, bp->b_size);
+  /* In an environment where text and binary files are treated differently,
+     compensate for lseek() on text files returning an offset different from
+     the count of characters read() returns.  Text-mode streams have to be
+     treated as unbuffered. */
+  if ((bp->b_flag & (B_TEXT | B_UNBUFF)) == B_TEXT)
+    {
+      o = lseek (bp->b_fd, 0, SEEK_CUR);
+      nr = zread (bp->b_fd, bp->b_buffer, bp->b_size);
+      if (nr > 0 && nr < lseek (bp->b_fd, 0, SEEK_CUR) - o)
+	{
+	  lseek (bp->b_fd, o, SEEK_SET);
+	  bp->b_flag |= B_UNBUFF;
+	  bp->b_size = 1;
+	  nr = zread (bp->b_fd, bp->b_buffer, bp->b_size);
+	}
+    }
+  else
+    nr = zread (bp->b_fd, bp->b_buffer, bp->b_size);
   if (nr <= 0)
     {
       bp->b_used = 0;
@@ -464,15 +512,6 @@ b_fill_buffer (bp)
 	bp->b_flag |= B_ERROR;
       return (EOF);
     }
-
-#if defined (__CYGWIN__)
-  /* If on cygwin, translate \r\n to \n. */
-  if (nr >= 2 && bp->b_buffer[nr - 2] == '\r' && bp->b_buffer[nr - 1] == '\n')
-    {
-      bp->b_buffer[nr - 2] = '\n';
-      nr--;
-    }
-#endif
 
   bp->b_used = nr;
   bp->b_inputp = 0;

@@ -1,29 +1,31 @@
 /* quit.h -- How to handle SIGINT gracefully. */
 
-/* Copyright (C) 1993 Free Software Foundation, Inc.
+/* Copyright (C) 1993-2013 Free Software Foundation, Inc.
 
    This file is part of GNU Bash, the Bourne Again SHell.
 
-   Bash is free software; you can redistribute it and/or modify it under
-   the terms of the GNU General Public License as published by the Free
-   Software Foundation; either version 2, or (at your option) any later
-   version.
+   Bash is free software: you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation, either version 3 of the License, or
+   (at your option) any later version.
 
-   Bash is distributed in the hope that it will be useful, but WITHOUT ANY
-   WARRANTY; without even the implied warranty of MERCHANTABILITY or
-   FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   for more details.
+   Bash is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
 
-   You should have received a copy of the GNU General Public License along
-   with Bash; see the file COPYING.  If not, write to the Free Software
-   Foundation, 59 Temple Place, Suite 330, Boston, MA 02111 USA. */
+   You should have received a copy of the GNU General Public License
+   along with Bash.  If not, see <http://www.gnu.org/licenses/>.
+*/
 
 #if !defined (_QUIT_H_)
 #define _QUIT_H_
 
-/* Non-zero means SIGINT has already ocurred. */
-extern volatile int interrupt_state;
-extern volatile int terminating_signal;
+#include "sig.h"	/* for sig_atomic_t */
+
+/* Non-zero means SIGINT has already occurred. */
+extern volatile sig_atomic_t interrupt_state;
+extern volatile sig_atomic_t terminating_signal;
 
 /* Macro to call a great deal.  SIGINT just sets the interrupt_state variable.
    When it is safe, put QUIT in the code, and the "interrupt" will take
@@ -34,6 +36,12 @@ extern volatile int terminating_signal;
   do { \
     if (terminating_signal) termsig_handler (terminating_signal); \
     if (interrupt_state) throw_to_top_level (); \
+  } while (0)
+
+#define CHECK_ALRM \
+  do { \
+    if (sigalrm_seen) \
+      longjmp (alrmbuf, 1); \
   } while (0)
 
 #define SETINTERRUPT interrupt_state = 1
@@ -50,4 +58,22 @@ extern volatile int terminating_signal;
     if (terminating_signal) termsig_handler (terminating_signal); \
   } while (0)
 
+#define LASTSIG() \
+  (terminating_signal ? terminating_signal : (interrupt_state ? SIGINT : 0))
+
+#define CHECK_WAIT_INTR \
+  do { \
+    if (wait_signal_received && this_shell_builtin && (this_shell_builtin == wait_builtin)) \
+      longjmp (wait_intr_buf, 1); \
+  } while (0)
+
+#define RESET_SIGTERM \
+  do { \
+    sigterm_received = 0; \
+  } while (0)
+
+#define CHECK_SIGTERM \
+  do { \
+    if (sigterm_received) termsig_handler (SIGTERM); \
+  } while (0)
 #endif /* _QUIT_H_ */

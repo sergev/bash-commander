@@ -1,22 +1,22 @@
 /* pcomplib.c - library functions for programmable completion. */
 
-/* Copyright (C) 1999-2002 Free Software Foundation, Inc.
+/* Copyright (C) 1999-2009 Free Software Foundation, Inc.
 
    This file is part of GNU Bash, the Bourne Again SHell.
 
-   Bash is free software; you can redistribute it and/or modify it under
-   the terms of the GNU General Public License as published by the Free
-   Software Foundation; either version 2, or (at your option) any later
-   version.
+   Bash is free software: you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation, either version 3 of the License, or
+   (at your option) any later version.
 
-   Bash is distributed in the hope that it will be useful, but WITHOUT ANY
-   WARRANTY; without even the implied warranty of MERCHANTABILITY or
-   FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   for more details.
+   Bash is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
 
-   You should have received a copy of the GNU General Public License along
-   with Bash; see the file COPYING.  If not, write to the Free Software
-   Foundation, 59 Temple Place, Suite 330, Boston, MA 02111 USA. */
+   You should have received a copy of the GNU General Public License
+   along with Bash.  If not, see <http://www.gnu.org/licenses/>.
+*/
 
 #include <config.h>
 
@@ -37,7 +37,7 @@
 #include "shell.h"
 #include "pcomplete.h"
 
-#define COMPLETE_HASH_BUCKETS	32	/* must be power of two */
+#define COMPLETE_HASH_BUCKETS	128	/* must be power of two */
 
 #define STRDUP(x)	((x) ? savestring (x) : (char *)NULL)
 
@@ -62,6 +62,7 @@ compspec_create ()
   ret->suffix = (char *)NULL;
   ret->funcname = (char *)NULL;
   ret->command = (char *)NULL;
+  ret->lcommand = (char *)NULL;
   ret->filterpat = (char *)NULL;
 
   return ret;
@@ -80,6 +81,7 @@ compspec_dispose (cs)
       FREE (cs->suffix);
       FREE (cs->funcname);
       FREE (cs->command);
+      FREE (cs->lcommand);
       FREE (cs->filterpat);
 
       free (cs);
@@ -104,6 +106,7 @@ compspec_copy (cs)
   new->suffix = STRDUP (cs->suffix);
   new->funcname = STRDUP (cs->funcname);
   new->command = STRDUP (cs->command);
+  new->lcommand = STRDUP (cs->lcommand);
   new->filterpat = STRDUP (cs->filterpat);
 
   return new;

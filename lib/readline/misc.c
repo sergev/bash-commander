@@ -1,24 +1,24 @@
 /* misc.c -- miscellaneous bindable readline functions. */
 
-/* Copyright (C) 1987-2005 Free Software Foundation, Inc.
+/* Copyright (C) 1987-2012 Free Software Foundation, Inc.
 
-   This file is part of the GNU Readline Library, a library for
-   reading lines of text with interactive input and history editing.
+   This file is part of the GNU Readline Library (Readline), a library
+   for reading lines of text with interactive input and history editing.      
 
-   The GNU Readline Library is free software; you can redistribute it
-   and/or modify it under the terms of the GNU General Public License
-   as published by the Free Software Foundation; either version 2, or
+   Readline is free software: you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation, either version 3 of the License, or
    (at your option) any later version.
 
-   The GNU Readline Library is distributed in the hope that it will be
-   useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-   of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   Readline is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
    GNU General Public License for more details.
 
-   The GNU General Public License is often shipped with GNU software, and
-   is generally kept in a file called COPYING or LICENSE.  If you do not
-   have a copy of the license, write to the Free Software Foundation,
-   59 Temple Place, Suite 330, Boston, MA 02111 USA. */
+   You should have received a copy of the GNU General Public License
+   along with Readline.  If not, see <http://www.gnu.org/licenses/>.
+*/
+
 #define READLINE_LIBRARY
 
 #if defined (HAVE_CONFIG_H)
@@ -55,6 +55,8 @@
 
 static int rl_digit_loop PARAMS((void));
 static void _rl_history_set_point PARAMS((void));
+
+extern int history_offset;
 
 /* Forward declarations used in this file */
 void _rl_free_history_entry PARAMS((HIST_ENTRY *));
@@ -328,7 +330,7 @@ _rl_free_history_entry (entry)
   FREE (entry->line);
   FREE (entry->timestamp);
 
-  free (entry);
+  xfree (entry);
 }
 
 /* Perhaps put back the current line if it has changed. */
@@ -342,9 +344,9 @@ rl_maybe_replace_line ()
   if (temp && ((UNDO_LIST *)(temp->data) != rl_undo_list))
     {
       temp = replace_history_entry (where_history (), rl_line_buffer, (histdata_t)rl_undo_list);
-      free (temp->line);
+      xfree (temp->line);
       FREE (temp->timestamp);
-      free (temp);
+      xfree (temp);
     }
   return 0;
 }
@@ -431,7 +433,88 @@ rl_replace_from_history (entry, flags)
       rl_mark = rl_end;
     }
 #endif
+}
+
+/* Process and free undo lists attached to each history entry prior to the
+   current entry, inclusive, reverting each line to its saved state.  This 
+   is destructive, and state about the current line is lost.  This is not
+   intended to be called while actively editing, and the current line is
+   not assumed to have been added to the history list. */
+void
+_rl_revert_all_lines ()
+{
+  int hpos;
+  HIST_ENTRY *entry;
+  UNDO_LIST *ul, *saved_undo_list;
+  char *lbuf;
+
+  lbuf = savestring (rl_line_buffer);
+  saved_undo_list = rl_undo_list;
+  hpos = where_history ();
+
+  entry = (hpos == history_length) ? previous_history () : current_history ();
+  while (entry)
+    {
+      if (ul = (UNDO_LIST *)entry->data)
+	{
+	  if (ul == saved_undo_list)
+	    saved_undo_list = 0;
+	  /* Set up rl_line_buffer and other variables from history entry */
+	  rl_replace_from_history (entry, 0);	/* entry->line is now current */
+	  /* Undo all changes to this history entry */
+	  while (rl_undo_list)
+	    rl_do_undo ();
+	  /* And copy the reverted line back to the history entry, preserving
+	     the timestamp. */
+	  FREE (entry->line);
+	  entry->line = savestring (rl_line_buffer);
+	  entry->data = 0;
+	}
+      entry = previous_history ();
+    }
+
+  /* Restore history state */
+  rl_undo_list = saved_undo_list;	/* may have been set to null */
+  history_set_pos (hpos);
+  
+  /* reset the line buffer */
+  rl_replace_line (lbuf, 0);
+  _rl_set_the_line ();
+
+  /* and clean up */
+  xfree (lbuf);
 }  
+
+/* Free the history list, including private readline data and take care
+   of pointer aliases to history data.  Resets rl_undo_list if it points
+   to an UNDO_LIST * saved as some history entry's data member.  This
+   should not be called while editing is active. */
+void
+rl_clear_history ()
+{
+  HIST_ENTRY **hlist, *hent;
+  register int i;
+  UNDO_LIST *ul, *saved_undo_list;
+
+  saved_undo_list = rl_undo_list;
+  hlist = history_list ();		/* direct pointer, not copy */
+
+  for (i = 0; i < history_length; i++)
+    {
+      hent = hlist[i];
+      if (ul = (UNDO_LIST *)hent->data)
+	{
+	  if (ul == saved_undo_list)
+	    saved_undo_list = 0;
+	  _rl_free_undo_list (ul);
+	  hent->data = 0;
+	}
+      _rl_free_history_entry (hent);
+    }
+
+  history_offset = history_length = 0;
+  rl_undo_list = saved_undo_list;	/* should be NULL */
+}
 
 /* **************************************************************** */
 /*								    */
@@ -560,7 +643,7 @@ rl_vi_editing_mode (count, key)
 #if defined (VI_MODE)
   _rl_set_insert_mode (RL_IM_INSERT, 1);	/* vi mode ignores insert mode */
   rl_editing_mode = vi_mode;
-  rl_vi_insertion_mode (1, key);
+  rl_vi_insert_mode (1, key);
 #endif /* VI_MODE */
 
   return 0;
@@ -573,6 +656,10 @@ rl_emacs_editing_mode (count, key)
   rl_editing_mode = emacs_mode;
   _rl_set_insert_mode (RL_IM_INSERT, 1); /* emacs mode default is insert mode */
   _rl_keymap = emacs_standard_keymap;
+
+  if (_rl_show_mode_in_prompt)
+    _rl_reset_prompt ();
+
   return 0;
 }
 

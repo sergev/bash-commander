@@ -1,22 +1,22 @@
 /* shell.h -- The data structures used by the shell */
 
-/* Copyright (C) 1993-2002 Free Software Foundation, Inc.
+/* Copyright (C) 1993-2009 Free Software Foundation, Inc.
 
    This file is part of GNU Bash, the Bourne Again SHell.
 
-   Bash is free software; you can redistribute it and/or modify it under
-   the terms of the GNU General Public License as published by the Free
-   Software Foundation; either version 2, or (at your option) any later
-   version.
+   Bash is free software: you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation, either version 3 of the License, or
+   (at your option) any later version.
 
-   Bash is distributed in the hope that it will be useful, but WITHOUT ANY
-   WARRANTY; without even the implied warranty of MERCHANTABILITY or
-   FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   for more details.
+   Bash is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
 
-   You should have received a copy of the GNU General Public License along
-   with Bash; see the file COPYING.  If not, write to the Free Software
-   Foundation, 59 Temple Place, Suite 330, Boston, MA 02111 USA. */
+   You should have received a copy of the GNU General Public License
+   along with Bash.  If not, see <http://www.gnu.org/licenses/>.
+*/
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -55,7 +55,11 @@ extern int EOF_Reached;
 /* Usage messages by builtins result in a return status of 2. */
 #define EX_BADUSAGE	2
 
+#define EX_MISCERROR	2
+
 /* Special exit statuses used by the shell, internally and externally. */
+#define EX_RETRYFAIL	124
+#define EX_WEXPCOMSUB	125
 #define EX_BINARY_FILE	126
 #define EX_NOEXEC	126
 #define EX_NOINPUT	126
@@ -89,7 +93,10 @@ extern int debugging_mode;
 extern int executing, login_shell;
 extern int interactive, interactive_shell;
 extern int startup_state;
+extern int subshell_environment;
 extern int shell_compatibility_level;
+
+extern int locale_mb_cur_max;
 
 /* Structure to pass around that holds a bitmap of file descriptors
    to close, and the size of that structure.  Used in execute_cmd.c. */
@@ -131,6 +138,9 @@ typedef struct _sh_parser_state_t {
   int parser_state;
   int *token_state;
 
+  char *token;
+  int token_buffer_size;
+
   /* input line state -- line number saved elsewhere */
   int input_line_terminator;
   int eof_encountered;
@@ -138,6 +148,8 @@ typedef struct _sh_parser_state_t {
 #if defined (HANDLE_MULTIBYTE)
   /* Nothing right now for multibyte state, but might want something later. */
 #endif
+
+  char **prompt_string_pointer;
 
   /* history state affecting or modified by the parser */
   int current_command_line_count;
@@ -159,6 +171,16 @@ typedef struct _sh_parser_state_t {
   
 } sh_parser_state_t;
 
+typedef struct _sh_input_line_state_t {
+  char *input_line;
+  size_t input_line_index;
+  size_t input_line_size;
+  size_t input_line_len;
+} sh_input_line_state_t;
+
 /* Let's try declaring these here. */
 extern sh_parser_state_t *save_parser_state __P((sh_parser_state_t *));
 extern void restore_parser_state __P((sh_parser_state_t *));
+
+extern sh_input_line_state_t *save_input_line_state __P((sh_input_line_state_t *));
+extern void restore_input_line_state __P((sh_input_line_state_t *));

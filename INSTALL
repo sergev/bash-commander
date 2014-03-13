@@ -47,8 +47,8 @@ out how `configure' could check whether or not to do them, and mail
 diffs or instructions to <bash-maintainers@gnu.org> so they can be
 considered for the next release.
 
-The file `configure.in' is used to create `configure' by a program
-called Autoconf.  You only need `configure.in' if you want to change it
+The file `configure.ac' is used to create `configure' by a program
+called Autoconf.  You only need `configure.ac' if you want to change it
 or regenerate `configure' using a newer version of Autoconf.  If you do
 this, make sure you are using Autoconf version 2.50 or newer.
 
@@ -252,9 +252,9 @@ The `minimal-config' option can be used to disable all of the following
 options, but it is processed first, so individual options may be
 enabled using `enable-FEATURE'.
 
-All of the following options except for `disabled-builtins' and
-`xpg-echo-default' are enabled by default, unless the operating system
-does not provide the necessary support.
+All of the following options except for `disabled-builtins',
+`directpand-default', and `xpg-echo-default' are enabled by default,
+unless the operating system does not provide the necessary support.
 
 `--enable-alias'
      Allow alias expansion and include the `alias' and `unalias'
@@ -275,7 +275,16 @@ does not provide the necessary support.
 
 `--enable-brace-expansion'
      Include `csh'-like brace expansion ( `b{a,b}c' ==> `bac bbc' ).
-     See *Note Brace Expansion::, for a complete description.
+     See *note Brace Expansion::, for a complete description.
+
+`--enable-casemod-attributes'
+     Include support for case-modifying attributes in the `declare'
+     builtin and assignment statements.  Variables with the UPPERCASE
+     attribute, for example, will have their values converted to
+     uppercase upon assignment.
+
+`--enable-casemod-expansion'
+     Include support for case-modifying word expansions.
 
 `--enable-command-timing'
      Include support for recognizing `time' as a reserved word and for
@@ -292,8 +301,17 @@ does not provide the necessary support.
      `=~' binary operator in the `[[' conditional command.  (*note
      Conditional Constructs::).
 
+`--enable-coprocesses'
+     Include support for coprocesses and the `coproc' reserved word
+     (*note Pipelines::).
+
 `--enable-debugger'
      Include support for the bash debugger (distributed separately).
+
+`--enable-direxpand-default'
+     Cause the `direxpand' shell option (*note The Shopt Builtin::) to
+     be enabled by default when the shell starts.  It is normally
+     disabled by default.
 
 `--enable-directory-stack'
      Include support for a `csh'-like directory stack and the `pushd',
@@ -301,7 +319,7 @@ does not provide the necessary support.
 
 `--enable-disabled-builtins'
      Allow builtin commands to be invoked via `builtin xxx' even after
-     `xxx' has been disabled using `enable -n xxx'.  See *Note Bash
+     `xxx' has been disabled using `enable -n xxx'.  See *note Bash
      Builtins::, for details of the `builtin' and `enable' builtin
      commands.
 
@@ -311,7 +329,17 @@ does not provide the necessary support.
 
 `--enable-extended-glob'
      Include support for the extended pattern matching features
-     described above under *Note Pattern Matching::.
+     described above under *note Pattern Matching::.
+
+`--enable-extended-glob-default'
+     Set the default value of the EXTGLOB shell option described above
+     under *note The Shopt Builtin:: to be enabled.
+
+`--enable-glob-asciirange-default'
+     Set the default value of the GLOBASCIIRANGES shell option described
+     above under *note The Shopt Builtin:: to be enabled.  This
+     controls the behavior of character ranges when used in pattern
+     matching bracket expressions.
 
 `--enable-help-builtin'
      Include the `help' builtin, which displays help on shell builtins
@@ -346,8 +374,8 @@ does not provide the necessary support.
 `--enable-prompt-string-decoding'
      Turn on the interpretation of a number of backslash-escaped
      characters in the `$PS1', `$PS2', `$PS3', and `$PS4' prompt
-     strings.  See *Note Printing a Prompt::, for a complete list of
-     prompt string escape sequences.
+     strings.  See *note Controlling the Prompt::, for a complete list
+     of prompt string escape sequences.
 
 `--enable-readline'
      Include support for command-line editing and history with the Bash
@@ -355,12 +383,12 @@ does not provide the necessary support.
 
 `--enable-restricted'
      Include support for a "restricted shell".  If this is enabled,
-     Bash, when called as `rbash', enters a restricted mode.  See *Note
+     Bash, when called as `rbash', enters a restricted mode.  See *note
      The Restricted Shell::, for a description of restricted mode.
 
 `--enable-select'
-     Include the `select' builtin, which allows the generation of simple
-     menus (*note Conditional Constructs::).
+     Include the `select' compound command, which allows the generation
+     of simple menus (*note Conditional Constructs::).
 
 `--enable-separate-helpfiles'
      Use external files for the documentation displayed by the `help'

@@ -1,21 +1,22 @@
 /* error.c -- Functions for handling errors. */
-/* Copyright (C) 1993-2003 Free Software Foundation, Inc.
+
+/* Copyright (C) 1993-2009 Free Software Foundation, Inc.
 
    This file is part of GNU Bash, the Bourne Again SHell.
 
-   Bash is free software; you can redistribute it and/or modify it under
-   the terms of the GNU General Public License as published by the Free
-   Software Foundation; either version 2, or (at your option) any later
-   version.
+   Bash is free software: you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation, either version 3 of the License, or
+   (at your option) any later version.
 
-   Bash is distributed in the hope that it will be useful, but WITHOUT ANY
-   WARRANTY; without even the implied warranty of MERCHANTABILITY or
-   FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   for more details.
+   Bash is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
 
-   You should have received a copy of the GNU General Public License along
-   with Bash; see the file COPYING.  If not, write to the Free Software
-   Foundation, 59 Temple Place, Suite 330, Boston, MA 02111 USA. */
+   You should have received a copy of the GNU General Public License
+   along with Bash.  If not, see <http://www.gnu.org/licenses/>.
+*/
 
 #include "config.h"
 
@@ -52,6 +53,7 @@ extern int errno;
 
 extern int executing_line_number __P((void));
 
+extern int last_command_exit_value;
 extern char *shell_name;
 #if defined (JOB_CONTROL)
 extern pid_t shell_pgrp;
@@ -59,7 +61,7 @@ extern int give_terminal_to __P((pid_t, int));
 #endif /* JOB_CONTROL */
 
 #if defined (ARRAY_VARS)
-extern char *bash_badsub_errmsg;
+extern const char * const bash_badsub_errmsg;
 #endif
 
 static void error_prolog __P((int));
@@ -70,7 +72,7 @@ static void error_prolog __P((int));
 #define MAINTAINER "bash-maintainers@gnu.org"
 #endif
 
-char *the_current_maintainer = MAINTAINER;
+const char * const the_current_maintainer = MAINTAINER;
 
 int gnu_error_format = 0;
 
@@ -85,7 +87,7 @@ error_prolog (print_lineno)
   line = (print_lineno && interactive_shell == 0) ? executing_line_number () : -1;
 
   if (line > 0)
-    fprintf (stderr, "%s:%s%d: ", ename, gnu_error_format ? "" : " line ", line);
+    fprintf (stderr, "%s:%s%d: ", ename, gnu_error_format ? "" : _(" line "), line);
   else
     fprintf (stderr, "%s: ", ename);
 }
@@ -108,7 +110,7 @@ get_name_for_error ()
       if (bash_source_v && array_p (bash_source_v) &&
 	  (bash_source_a = array_cell (bash_source_v)))
 	name = array_reference (bash_source_a, 0);
-      if (name == 0)
+      if (name == 0 || *name == '\0')	/* XXX - was just name == 0 */
 #endif
 	name = dollar_vars[0];
     }
@@ -198,7 +200,11 @@ report_error (format, va_alist)
 
   va_end (args);
   if (exit_immediately_on_error)
-    exit_shell (1);
+    {
+      if (last_command_exit_value == 0)
+	last_command_exit_value = 1;
+      exit_shell (last_command_exit_value);
+    }
 }
 
 void
@@ -255,7 +261,8 @@ internal_warning (format, va_alist)
 {
   va_list args;
 
-  fprintf (stderr, _("%s: warning: "), get_name_for_error ());
+  error_prolog (1);
+  fprintf (stderr, _("warning: "));
 
   SH_VA_START (args, format);
 
@@ -315,11 +322,11 @@ parser_error (lineno, format, va_alist)
   if (interactive)
     fprintf (stderr, "%s: ", ename);
   else if (interactive_shell)
-    fprintf (stderr, "%s: %s:%s%d: ", ename, iname, gnu_error_format ? "" : " line ", lineno);
+    fprintf (stderr, "%s: %s:%s%d: ", ename, iname, gnu_error_format ? "" : _(" line "), lineno);
   else if (STREQ (ename, iname))
-    fprintf (stderr, "%s:%s%d: ", ename, gnu_error_format ? "" : " line ", lineno);
+    fprintf (stderr, "%s:%s%d: ", ename, gnu_error_format ? "" : _(" line "), lineno);
   else
-    fprintf (stderr, "%s: %s:%s%d: ", ename, iname, gnu_error_format ? "" : " line ", lineno);
+    fprintf (stderr, "%s: %s:%s%d: ", ename, iname, gnu_error_format ? "" : _(" line "), lineno);
 
   SH_VA_START (args, format);
 
@@ -329,10 +336,40 @@ parser_error (lineno, format, va_alist)
   va_end (args);
 
   if (exit_immediately_on_error)
-    exit_shell (2);
+    exit_shell (last_command_exit_value = 2);
 }
 
 #ifdef DEBUG
+/* This assumes ASCII and is suitable only for debugging */
+char *
+strescape (str)
+     const char *str;
+{
+  char *r, *result;
+  unsigned char *s;
+
+  r = result = (char *)xmalloc (strlen (str) * 2 + 1);
+
+  for (s = (unsigned char *)str; s && *s; s++)
+    {
+      if (*s < ' ')
+	{
+	  *r++ = '^';
+	  *r++ = *s+64;
+	}
+      else if (*s == 127)
+	{
+	  *r++ = '^';
+	  *r++ = '?';
+	}
+     else
+	*r++ = *s;
+    }
+
+  *r = '\0';
+  return result;
+}
+
 void
 #if defined (PREFER_STDARG)
 itrace (const char *format, ...)
@@ -399,7 +436,7 @@ trace (format, va_alist)
 /* **************************************************************** */
 
 
-static char *cmd_error_table[] = {
+static const char * const cmd_error_table[] = {
 	N_("unknown command error"),	/* CMDERR_DEFAULT */
 	N_("bad command type"),		/* CMDERR_BADTYPE */
 	N_("bad connector"),		/* CMDERR_BADCONN */

@@ -90,32 +90,11 @@ int cmdr_current_panel;
 void cmdr_set_visual_mode __P((int enable_visual));
 
 /*
- * Count a number of characters in multibyte string.
- */
-static int
-mbstrlen (str)
-    const char *str;
-{
-  int mbytes, chars;
-
-  chars = 0;
-  for (;;)
-    {
-      mbytes = mblen (str, MB_CUR_MAX);
-      if (mbytes <= 0)
-	break;
-      str += mbytes;
-      ++chars;
-    }
-  return chars;
-}
-
-/*
  * Parse parameter string up to ':', unescaping characters.
  * Return an allocated copy.
  */
 static char *
-parse_string (strp)
+parse_params (strp)
     char **strp;
 {
   char *copy, *p;
@@ -272,23 +251,23 @@ parse_colors (char *param)
 	      {
 	      case 'n'|'o'<<8:
 		free (cmdr_color_normal);
-		cmdr_color_normal = parse_string (&param);
+		cmdr_color_normal = parse_params (&param);
 		break;
 	      case 'n'|'r'<<8:
 		free (cmdr_color_reverse);
-		cmdr_color_reverse = parse_string (&param);
+		cmdr_color_reverse = parse_params (&param);
 		break;
 	      case 'b'|'o'<<8:
 		free (cmdr_color_bold);
-		cmdr_color_bold = parse_string (&param);
+		cmdr_color_bold = parse_params (&param);
 		break;
 	      case 'b'|'r'<<8:
 		free (cmdr_color_bold_reverse);
-		cmdr_color_bold_reverse = parse_string (&param);
+		cmdr_color_bold_reverse = parse_params (&param);
 		break;
 	      case 'd'|'i'<<8:
 		free (cmdr_color_dim);
-		cmdr_color_dim = parse_string (&param);
+		cmdr_color_dim = parse_params (&param);
 		break;
 	      }
 	  else
@@ -662,7 +641,8 @@ DIRINFO *cmdr_read_directory (path, olddir, oldcur)
     }
   else if (! getcwd (dir->path, sizeof (dir->path)))
     {
-      chdir (home);
+      if (chdir (home) < 0)
+        /* Cannot happen. */;
       strcpy (dir->path, home);
     }
   stat (dir->path, &dir->st);
@@ -2159,15 +2139,9 @@ cmdr_init (params)
    * Insert, ^T - tag/untag current file
    * ^X-a - toggle displaying of hidden files */
 
-  /* This reworked so that it would work in Vi mode
-   *  see ./lib/readline/find.c */
-#if 1
   /* <Enter> translates to ^J on some terminals.
    * Use <Esc> <Enter> to insert filenames. */
   rl_bind_key_in_map (CTRL('J'), cmdr_insert_filename, cmdr_visual_keymap);
-#else
-  rl_bind_keyseq_in_map ("\033\12", cmdr_insert_filename, cmdr_visual_keymap);
-#endif
   rl_bind_key_in_map (CTRL('L'), cmdr_clear_screen, cmdr_visual_keymap);
   rl_bind_key_in_map (CTRL('T'), cmdr_tag_file, cmdr_visual_keymap);
   rl_bind_keyseq_in_map ("\030a", cmdr_toggle_hidden, cmdr_visual_keymap);

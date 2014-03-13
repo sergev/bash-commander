@@ -2,23 +2,21 @@
 
 /*  Copyright (C) 1985-2005 Free Software Foundation, Inc.
 
-    This program is free software; you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation; either version 2, or (at your option)
-    any later version.
+    This file is part of GNU Bash, the Bourne-Again SHell.
+    
+   Bash is free software: you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation, either version 3 of the License, or
+   (at your option) any later version.
 
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
+   Bash is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
 
-    You should have received a copy of the GNU General Public License
-    along with this program; if not, write to the Free Software
-    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111 USA.
-
-In other words, you are welcome to use, share and improve this program.
-You are forbidden to forbid anyone else to use, share and improve
-what you give them.   Help stamp out software-hoarding!  */
+   You should have received a copy of the GNU General Public License
+   along with Bash.  If not, see <http://www.gnu.org/licenses/>.
+*/
 
 /*
  * @(#)nmalloc.c 1 (Caltech) 2/21/82
@@ -174,7 +172,7 @@ typedef union _malloc_guard {
 #define ASSERT(p) \
   do \
     { \
-      if (!(p)) xbotch((PTR_T)0, ERR_ASSERT_FAILED, __STRING(p), file, line); \
+      if (!(p)) xbotch((PTR_T)0, ERR_ASSERT_FAILED, CPP_STRING(p), file, line); \
     } \
   while (0)
 
@@ -231,7 +229,7 @@ static int maxbuck;	/* highest bucket receiving allocation request. */
 
 static char *memtop;	/* top of heap */
 
-static unsigned long binsizes[NBUCKETS] = {
+static const unsigned long binsizes[NBUCKETS] = {
 	8UL, 16UL, 32UL, 64UL, 128UL, 256UL, 512UL, 1024UL, 2048UL, 4096UL,
 	8192UL, 16384UL, 32768UL, 65536UL, 131072UL, 262144UL, 524288UL,
 	1048576UL, 2097152UL, 4194304UL, 8388608UL, 16777216UL, 33554432UL,
@@ -267,7 +265,7 @@ extern char *sbrk ();
 #endif /* !HAVE_DECL_SBRK */
 
 #ifdef SHELL
-extern int interrupt_immediately;
+extern int interrupt_immediately, running_trap;
 extern int signal_is_trapped __P((int));
 #endif
 
@@ -312,7 +310,7 @@ xbotch (mem, e, s, file, line)
      int line;
 {
   fprintf (stderr, _("\r\nmalloc: %s:%d: assertion botched\r\n"),
-			file ? file : "unknown", line);
+			file ? file : _("unknown"), line);
 #ifdef MALLOC_REGISTER
   if (mem != NULL && malloc_register)
     mregister_describe_mem (mem, stderr);
@@ -500,8 +498,8 @@ xsplit (mp, nu)
   busy[nbuck] = 0;
 }
 
-static void
-block_signals (setp, osetp)
+void
+_malloc_block_signals (setp, osetp)
      sigset_t *setp, *osetp;
 {
 #ifdef HAVE_POSIX_SIGNALS
@@ -515,8 +513,8 @@ block_signals (setp, osetp)
 #endif
 }
 
-static void
-unblock_signals (setp, osetp)
+void
+_malloc_unblock_signals (setp, osetp)
      sigset_t *setp, *osetp;
 {
 #ifdef HAVE_POSIX_SIGNALS
@@ -564,10 +562,14 @@ morecore (nu)
   /* Block all signals in case we are executed from a signal handler. */
   blocked_sigs = 0;
 #ifdef SHELL
-  if (interrupt_immediately || signal_is_trapped (SIGINT) || signal_is_trapped (SIGCHLD))
+#  if defined (SIGCHLD)
+  if (interrupt_immediately || running_trap || signal_is_trapped (SIGINT) || signal_is_trapped (SIGCHLD))
+#  else
+  if (interrupt_immediately || running_trap || signal_is_trapped (SIGINT))
+#  endif
 #endif
     {
-      block_signals (&set, &oset);
+      _malloc_block_signals (&set, &oset);
       blocked_sigs = 1;
     }
 
@@ -654,7 +656,7 @@ morecore (nu)
 
 morecore_done:
   if (blocked_sigs)
-    unblock_signals (&set, &oset);
+    _malloc_unblock_signals (&set, &oset);
 }
 
 static void
@@ -903,10 +905,10 @@ internal_free (mem, file, line, flags)
   if (mg.i != p->mh_nbytes)
     xbotch (mem, ERR_ASSERT_FAILED, _("free: start and end chunk sizes differ"), file, line);
 
-#if 1
-  if (nunits >= LESSCORE_MIN && ((char *)p + binsize(nunits) == memtop))
+#if GLIBC21
+  if (nunits >= LESSCORE_MIN && ((char *)p + binsize(nunits) == sbrk (0)))
 #else
-  if (((char *)p + binsize(nunits) == memtop) && nunits >= LESSCORE_MIN)
+  if (nunits >= LESSCORE_MIN && ((char *)p + binsize(nunits) == memtop))
 #endif
     {
       /* If above LESSCORE_FRC, give back unconditionally.  This should be set

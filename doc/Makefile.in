@@ -1,20 +1,19 @@
 # This Makefile is for the Bash/documentation directory -*- text -*-.
 #
-# Copyright (C) 2003 Free Software Foundation, Inc.
+# Copyright (C) 2003-2013 Free Software Foundation, Inc.
 
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2, or (at your option)
-# any later version.
+#   This program is free software: you can redistribute it and/or modify
+#   it under the terms of the GNU General Public License as published by
+#   the Free Software Foundation, either version 3 of the License, or
+#   (at your option) any later version.
 
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
+#   This program is distributed in the hope that it will be useful,
+#   but WITHOUT ANY WARRANTY; without even the implied warranty of
+#   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#   GNU General Public License for more details.
 
-# You should have received a copy of the GNU General Public License
-# along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111 USA.
+#   You should have received a copy of the GNU General Public License
+#   along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 PACKAGE = @PACKAGE_NAME@
 VERSION = @PACKAGE_VERSION@
@@ -23,6 +22,8 @@ PACKAGE_BUGREPORT = @PACKAGE_BUGREPORT@
 PACKAGE_NAME = @PACKAGE_NAME@
 PACKAGE_STRING = @PACKAGE_STRING@
 PACKAGE_VERSION = @PACKAGE_VERSION@
+
+PACKAGE_TARNAME = @PACKAGE_TARNAME@
 
 #
 SHELL = @MAKE_SHELL@
@@ -35,7 +36,11 @@ VPATH = .:@srcdir@
 prefix = @prefix@
 exec_prefix = @exec_prefix@
 
+datarootdir = @datarootdir@
+
 infodir = @infodir@
+
+docdir = @docdir@
 
 # set this to a directory name to have the HTML files installed
 htmldir = @htmldir@
@@ -93,7 +98,7 @@ GROFF	    = groff
 HSUSER      = $(RL_LIBDIR)/doc/hsuser.texi
 RLUSER      = $(RL_LIBDIR)/doc/rluser.texi
 
-BASHREF_FILES = $(srcdir)/bashref.texi $(srcdir)/version.texi
+BASHREF_FILES = $(srcdir)/bashref.texi $(srcdir)/fdl.texi $(srcdir)/version.texi
 
 .SUFFIXES:	.0 .1 .3 .ms .ps .txt .dvi .html .pdf
 
@@ -143,6 +148,7 @@ BASHREF_FILES = $(srcdir)/bashref.texi $(srcdir)/version.texi
 
 all: ps info dvi text html
 nodvi: ps info text html
+everything: all pdf
 
 PSFILES = bash.ps bashbug.ps article.ps builtins.ps rbash.ps 
 DVIFILES = bashref.dvi bashref.ps
@@ -159,11 +165,13 @@ html: ${HTMLFILES}
 pdf: ${PDFFILES}
 
 bashref.dvi: $(BASHREF_FILES) $(HSUSER) $(RLUSER)
-	${SET_TEXINPUTS} $(TEXI2DVI) $(srcdir)/bashref.texi
+	${SET_TEXINPUTS} $(TEXI2DVI) $(srcdir)/bashref.texi || { ${RM} $@ ; exit 1; }
 
 bashref.info: $(BASHREF_FILES) $(HSUSER) $(RLUSER)
 	$(MAKEINFO) --no-split -I$(TEXINPUTDIR) $(srcdir)/bashref.texi
 
+# can also use:
+#	$(MAKEINFO) --html --no-split -I$(TEXINPUTDIR) $(srcdir)/bashref.texi
 bashref.html: $(BASHREF_FILES) $(HSUSER) $(RLUSER)
 	$(TEXI2HTML) -menu -monolithic -I $(TEXINPUTDIR) $(srcdir)/bashref.texi
 
@@ -188,6 +196,9 @@ article.pdf: article.ps
 bashref.pdf: bashref.dvi
 bash.pdf: bash.ps
 rose94.pdf: rose94.ps
+
+OTHER_DOCS = $(srcdir)/FAQ $(srcdir)/INTRO
+OTHER_INSTALLED_DOCS = FAQ INTRO
 
 $(MAN2HTML):	${topdir}/support/man2html.c
 	-( cd ${BUILD_DIR}/support ; ${MAKE} ${MFLAGS} man2html)
@@ -216,6 +227,7 @@ maybe-clean:
 installdirs:
 	-$(SHELL) $(SUPPORT_SRCDIR)/mkinstalldirs $(DESTDIR)$(man1dir)
 	-$(SHELL) $(SUPPORT_SRCDIR)/mkinstalldirs $(DESTDIR)$(infodir)
+	-$(SHELL) $(SUPPORT_SRCDIR)/mkinstalldirs $(DESTDIR)$(docdir)
 	-if test -n "$(htmldir)" ; then \
 		$(SHELL) $(SUPPORT_SRCDIR)/mkinstalldirs $(DESTDIR)$(htmldir) ; \
 	fi
@@ -223,9 +235,13 @@ installdirs:
 install: info installdirs bash.info
 	-$(INSTALL_DATA) $(srcdir)/bash.1 $(DESTDIR)$(man1dir)/bash${man1ext}
 	-$(INSTALL_DATA) $(srcdir)/bashbug.1 $(DESTDIR)$(man1dir)/bashbug${man1ext}
-# uncomment the next line to install the builtins man page
-#	-$(INSTALL_DATA) $(srcdir)/builtins.1 $(DESTDIR)$(man1dir)/bash_builtins${man1ext}
-	-$(INSTALL_DATA) $(srcdir)/bash.info $(DESTDIR)$(infodir)/bash.info
+	-$(INSTALL_DATA) $(OTHER_DOCS) $(DESTDIR)$(docdir)
+# uncomment the next lines to install the builtins man page
+#	sed 's:bash\.1:man1/&:' $(srcdir)/builtins.1 > $${TMPDIR:-/var/tmp}/builtins.1
+#	-$(INSTALL_DATA) $${TMPDIR:-/var/tmp}/builtins.1 $(DESTDIR)$(man1dir)/bash_builtins${man1ext}
+#	-$(RM) $${TMPDIR:-/var/tmp}/builtins.1
+	-if test -f bash.info; then d=.; else d=$(srcdir); fi; \
+	  $(INSTALL_DATA) $$d/bash.info $(DESTDIR)$(infodir)/bash.info
 # run install-info if it is present to update the info directory
 	if $(SHELL) -c 'install-info --version' >/dev/null 2>&1; then \
 		install-info --dir-file=$(DESTDIR)$(infodir)/dir $(DESTDIR)$(infodir)/bash.info; \
@@ -236,9 +252,18 @@ install: info installdirs bash.info
 		$(INSTALL_DATA) $(srcdir)/bashref.html $(DESTDIR)$(htmldir) ; \
 	fi
 
+install_builtins:	installdirs
+	sed 's:bash\.1:man1/&:' $(srcdir)/builtins.1 > $${TMPDIR:-/var/tmp}/builtins.1
+	-$(INSTALL_DATA) $${TMPDIR:-/var/tmp}/builtins.1 $(DESTDIR)$(man1dir)/bash_builtins${man1ext}
+	-$(RM) $${TMPDIR:-/var/tmp}/builtins.1
+
+install_everything:	install install_builtins
+
 uninstall:
 	-$(RM) $(DESTDIR)$(man1dir)/bash${man1ext} $(DESTDIR)$(man1dir)/bashbug${man1ext}
+	-$(RM) $(DESTDIR)$(man1dir)/bash_builtins${man1ext}
 	$(RM) $(DESTDIR)$(infodir)/bash.info
+	-( cd $(DESTDIR)$(docdir) && $(RM) $(OTHER_INSTALLED_DOCS) )
 	-if test -n "$(htmldir)" ; then \
 		$(RM) $(DESTDIR)$(htmldir)/bash.html ; \
 		$(RM) $(DESTDIR)$(htmldir)/bashref.html ; \
