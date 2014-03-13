@@ -342,7 +342,9 @@ extern void sv_comp_wordbreaks __P((char *));
 extern void sv_terminal __P((char *));
 extern void sv_hostfile __P((char *));
 extern void sv_winsize __P((char *));
+#if defined (COMMANDER)
 extern void sv_commander __P((char *));
+#endif
 #endif
 
 #if defined (__CYGWIN__)
