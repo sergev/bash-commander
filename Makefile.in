@@ -727,8 +727,8 @@ pathnames.h:		Makefile $(srcdir)/pathnames.h.in
 	@${RM} pathnames.tmp
 
 # comment out for distribution
-$(srcdir)/configure:	$(srcdir)/configure.ac $(srcdir)/aclocal.m4 $(srcdir)/config.h.in
-	cd $(srcdir) && autoconf
+#$(srcdir)/configure:	$(srcdir)/configure.ac $(srcdir)/aclocal.m4 $(srcdir)/config.h.in
+#	cd $(srcdir) && autoconf
 
 # for chet
 reconfig: force
