@@ -1,23 +1,25 @@
+/* unwind_prot.c - a simple unwind-protect system for internal variables */
+
 /* I can't stand it anymore!  Please can't we just write the
    whole Unix system in lisp or something? */
 
-/* Copyright (C) 1987-2002 Free Software Foundation, Inc.
+/* Copyright (C) 1987-2009 Free Software Foundation, Inc.
 
-This file is part of GNU Bash, the Bourne Again SHell.
+   This file is part of GNU Bash, the Bourne Again SHell.
 
-Bash is free software; you can redistribute it and/or modify it under
-the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
-version.
+   Bash is free software: you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation, either version 3 of the License, or
+   (at your option) any later version.
 
-Bash is distributed in the hope that it will be useful, but WITHOUT ANY
-WARRANTY; without even the implied warranty of MERCHANTABILITY or
-FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-for more details.
+   Bash is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
 
-You should have received a copy of the GNU General Public License along
-with Bash; see the file COPYING.  If not, write to the Free Software
-Foundation, 59 Temple Place, Suite 330, Boston, MA 02111 USA. */
+   You should have received a copy of the GNU General Public License
+   along with Bash.  If not, see <http://www.gnu.org/licenses/>.
+*/
 
 /* **************************************************************** */
 /*								    */
@@ -44,8 +46,9 @@ Foundation, 59 Temple Place, Suite 330, Boston, MA 02111 USA. */
 #include "command.h"
 #include "general.h"
 #include "unwind_prot.h"
-#include "quit.h"
 #include "sig.h"
+#include "quit.h"
+#include "error.h"	/* for internal_warning */
 
 /* Structure describing a saved variable and the value to restore it to.  */
 typedef struct {
@@ -174,6 +177,12 @@ clear_unwind_protect_list (flags)
     }
 }
 
+int
+have_unwind_protects ()
+{
+  return (unwind_protect_list != 0);
+}
+
 /* **************************************************************** */
 /*								    */
 /*			The Actual Functions		 	    */
@@ -232,18 +241,24 @@ unwind_frame_discard_internal (tag, ignore)
      char *tag, *ignore;
 {
   UNWIND_ELT *elt;
+  int found;
 
+  found = 0;
   while (elt = unwind_protect_list)
     {
       unwind_protect_list = unwind_protect_list->head.next;
       if (elt->head.cleanup == 0 && (STREQ (elt->arg.v, tag)))
 	{
 	  uwpfree (elt);
+	  found = 1;
 	  break;
 	}
       else
 	uwpfree (elt);
     }
+
+  if (found == 0)
+    internal_warning ("unwind_frame_discard: %s: frame not found", tag);
 }
 
 /* Restore the value of a variable, based on the contents of SV.
@@ -261,17 +276,20 @@ unwind_frame_run_internal (tag, ignore)
      char *tag, *ignore;
 {
   UNWIND_ELT *elt;
+  int found;
 
+  found = 0;
   while (elt = unwind_protect_list)
     {
       unwind_protect_list = elt->head.next;
 
       /* If tag, then compare. */
-      if (!elt->head.cleanup)
+      if (elt->head.cleanup == 0)
 	{
 	  if (tag && STREQ (elt->arg.v, tag))
 	    {
 	      uwpfree (elt);
+	      found = 1;
 	      break;
 	    }
 	}
@@ -285,6 +303,8 @@ unwind_frame_run_internal (tag, ignore)
 
       uwpfree (elt);
     }
+  if (tag && found == 0)
+    internal_warning ("unwind_frame_run: %s: frame not found", tag);
 }
 
 static void
@@ -316,3 +336,22 @@ unwind_protect_mem (var, size)
 {
   without_interrupts (unwind_protect_mem_internal, var, (char *) &size);
 }
+
+#if defined (DEBUG)
+#include <stdio.h>
+
+void
+print_unwind_protect_tags ()
+{
+  UNWIND_ELT *elt;
+
+  elt = unwind_protect_list;
+  while (elt)
+    {
+      unwind_protect_list = unwind_protect_list->head.next;
+      if (elt->head.cleanup == 0)
+        fprintf(stderr, "tag: %s\n", elt->arg.v);
+      elt = unwind_protect_list;
+    }
+}
+#endif

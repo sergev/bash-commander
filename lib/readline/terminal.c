@@ -1,24 +1,24 @@
 /* terminal.c -- controlling the terminal with termcap. */
 
-/* Copyright (C) 1996-2006 Free Software Foundation, Inc.
+/* Copyright (C) 1996-2009 Free Software Foundation, Inc.
 
-   This file is part of the GNU Readline Library, a library for
-   reading lines of text with interactive input and history editing.
+   This file is part of the GNU Readline Library (Readline), a library
+   for reading lines of text with interactive input and history editing.      
 
-   The GNU Readline Library is free software; you can redistribute it
-   and/or modify it under the terms of the GNU General Public License
-   as published by the Free Software Foundation; either version 2, or
+   Readline is free software: you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation, either version 3 of the License, or
    (at your option) any later version.
 
-   The GNU Readline Library is distributed in the hope that it will be
-   useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-   of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   Readline is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
    GNU General Public License for more details.
 
-   The GNU General Public License is often shipped with GNU software, and
-   is generally kept in a file called COPYING or LICENSE.  If you do not
-   have a copy of the license, write to the Free Software Foundation,
-   59 Temple Place, Suite 330, Boston, MA 02111 USA. */
+   You should have received a copy of the GNU General Public License
+   along with Readline.  If not, see <http://www.gnu.org/licenses/>.
+*/
+
 #define READLINE_LIBRARY
 
 #if defined (HAVE_CONFIG_H)
@@ -55,6 +55,10 @@
 #  include <sys/ioctl.h>
 #endif /* GWINSZ_IN_SYS_IOCTL && !TIOCGWINSZ */
 
+#ifdef __MSDOS__
+#  include <pc.h>
+#endif
+
 #include "rltty.h"
 #include "tcap.h"
 
@@ -77,13 +81,14 @@ static void _win_get_screensize PARAMS((int *, int *));
 static void _emx_get_screensize PARAMS((int *, int *));
 #endif
 
-#define CUSTOM_REDISPLAY_FUNC() (rl_redisplay_function != rl_redisplay)
-#define CUSTOM_INPUT_FUNC() (rl_getc_function != rl_getc)
-
-/*  If the calling application sets this to a non-zero value, readline will
-    use the $LINES and $COLUMNS environment variables to set its idea of the
-    window size before interrogating the kernel. */
+/* If the calling application sets this to a non-zero value, readline will
+   use the $LINES and $COLUMNS environment variables to set its idea of the
+   window size before interrogating the kernel. */
 int rl_prefer_env_winsize = 0;
+
+/* If this is non-zero, readline will set LINES and COLUMNS in the
+   environment when it handles SIGWINCH. */
+int rl_change_environment = 1;
 
 /* **************************************************************** */
 /*								    */
@@ -91,17 +96,19 @@ int rl_prefer_env_winsize = 0;
 /*								    */
 /* **************************************************************** */
 
+#ifndef __MSDOS__
 static char *term_buffer = (char *)NULL;
 static char *term_string_buffer = (char *)NULL;
+#endif
 
 static int tcap_initialized;
 
-#if !defined (__linux__)
+#if !defined (__linux__) && !defined (NCURSES_VERSION)
 #  if defined (__EMX__) || defined (NEED_EXTERN_PC)
-extern
+extern 
 #  endif /* __EMX__ || NEED_EXTERN_PC */
 char PC, *BC, *UP;
-#endif /* __linux__ */
+#endif /* !__linux__ && !NCURSES_VERSION */
 
 /* Some strings to control terminal actions.  These are output by tputs (). */
 char *_rl_term_clreol;
@@ -279,7 +286,10 @@ _rl_get_screen_size (tty, ignore_env)
       if (_rl_screenwidth <= 0)
         _rl_screenwidth = wc;
 
-#if !defined (__DJGPP__)
+#if defined (__DJGPP__)
+      if (_rl_screenwidth <= 0)
+	_rl_screenwidth = ScreenCols ();
+#else
       if (_rl_screenwidth <= 0 && term_string_buffer)
 	_rl_screenwidth = tgetnum ("co");
 #endif
@@ -295,7 +305,10 @@ _rl_get_screen_size (tty, ignore_env)
       if (_rl_screenheight <= 0)
         _rl_screenheight = wr;
 
-#if !defined (__DJGPP__)
+#if defined (__DJGPP__)
+      if (_rl_screenheight <= 0)
+	_rl_screenheight = ScreenRows ();
+#else
       if (_rl_screenheight <= 0 && term_string_buffer)
 	_rl_screenheight = tgetnum ("li");
 #endif
@@ -311,7 +324,8 @@ _rl_get_screen_size (tty, ignore_env)
   /* If we're being compiled as part of bash, set the environment
      variables $LINES and $COLUMNS to new values.  Otherwise, just
      do a pair of putenv () or setenv () calls. */
-  sh_set_lines_and_columns (_rl_screenheight, _rl_screenwidth);
+  if (rl_change_environment)
+    sh_set_lines_and_columns (_rl_screenheight, _rl_screenwidth);
 
   if (_rl_term_autowrap == 0)
     _rl_screenwidth--;
@@ -363,26 +377,32 @@ rl_reset_screen_size ()
 }
 
 void
+_rl_sigwinch_resize_terminal ()
+{
+  _rl_get_screen_size (fileno (rl_instream), 1);
+}
+	
+void
 rl_resize_terminal ()
 {
-  if (readline_echoing_p)
+  _rl_get_screen_size (fileno (rl_instream), 1);
+  if (_rl_echoing_p)
     {
-      _rl_get_screen_size (fileno (rl_instream), 1);
       if (CUSTOM_REDISPLAY_FUNC ())
 	rl_forced_update_display ();
-      else
+      else if (RL_ISSTATE(RL_STATE_REDISPLAYING) == 0)
 	_rl_redisplay_after_sigwinch ();
     }
 }
 
 struct _tc_string {
-     const char *tc_var;
+     const char * const tc_var;
      char **tc_value;
 };
 
 /* This should be kept sorted, just in case we decide to change the
    search algorithm to something smarter. */
-static struct _tc_string tc_strings[] =
+static const struct _tc_string tc_strings[] =
 {
   { "@7", &_rl_term_at7 },
   { "DC", &_rl_term_DC },
@@ -478,6 +498,23 @@ _rl_init_terminal_io (terminal_name)
   if (term == 0)
     term = "dumb";
 
+#ifdef __MSDOS__
+  _rl_term_im = _rl_term_ei = _rl_term_ic = _rl_term_IC = (char *)NULL;
+  _rl_term_up = _rl_term_dc = _rl_term_DC = _rl_visible_bell = (char *)NULL;
+  _rl_term_ku = _rl_term_kd = _rl_term_kl = _rl_term_kr = (char *)NULL;
+  _rl_term_mm = _rl_term_mo = (char *)NULL;
+  _rl_terminal_can_insert = term_has_meta = _rl_term_autowrap = 0;
+  _rl_term_cr = "\r";
+  _rl_term_clreol = _rl_term_clrpag = _rl_term_backspace = (char *)NULL;
+  _rl_term_goto = _rl_term_pc = _rl_term_ip = (char *)NULL;
+  _rl_term_ks = _rl_term_ke =_rl_term_vs = _rl_term_ve = (char *)NULL;
+  _rl_term_kh = _rl_term_kH = _rl_term_at7 = _rl_term_kI = (char *)NULL;
+#if defined(HACK_TERMCAP_MOTION)
+  _rl_term_forward_char = (char *)NULL;
+#endif
+
+  _rl_get_screen_size (tty, 0);
+#else  /* !__MSDOS__ */
   /* I've separated this out for later work on not calling tgetent at all
      if the calling application has supplied a custom redisplay function,
      (and possibly if the application has supplied a custom input function). */
@@ -574,9 +611,10 @@ _rl_init_terminal_io (terminal_name)
 
   /* Check to see if this terminal has a meta key and clear the capability
      variables if there is none. */
-  term_has_meta = (tgetflag ("km") || tgetflag ("MT"));
-  if (!term_has_meta)
+  term_has_meta = tgetflag ("km") != 0;
+  if (term_has_meta == 0)
     _rl_term_mm = _rl_term_mo = (char *)NULL;
+#endif /* !__MSDOS__ */
 
   /* Attempt to find and bind the arrow keys.  Do not override already
      bound keys in an overzealous attempt, however. */
@@ -674,10 +712,12 @@ _rl_backspace (count)
 {
   register int i;
 
+#ifndef __MSDOS__
   if (_rl_term_backspace)
     for (i = 0; i < count; i++)
       tputs (_rl_term_backspace, 1, _rl_output_character_function);
   else
+#endif
     for (i = 0; i < count; i++)
       putc ('\b', _rl_out_stream);
   return 0;
@@ -687,10 +727,10 @@ _rl_backspace (count)
 int
 rl_crlf ()
 {
-#if defined (NEW_TTY_DRIVER)
+#if defined (NEW_TTY_DRIVER) || defined (__MINT__)
   if (_rl_term_cr)
     tputs (_rl_term_cr, 1, _rl_output_character_function);
-#endif /* NEW_TTY_DRIVER */
+#endif /* NEW_TTY_DRIVER || __MINT__ */
   putc ('\n', _rl_out_stream);
   return 0;
 }
@@ -699,7 +739,7 @@ rl_crlf ()
 int
 rl_ding ()
 {
-  if (readline_echoing_p)
+  if (_rl_echoing_p)
     {
       switch (_rl_bell_preference)
         {
@@ -709,7 +749,11 @@ rl_ding ()
 	case VISIBLE_BELL:
 	  if (_rl_visible_bell)
 	    {
+#ifdef __DJGPP__
+	      ScreenVisualBell ();
+#else
 	      tputs (_rl_visible_bell, 1, _rl_output_character_function);
+#endif
 	      break;
 	    }
 	  /* FALLTHROUGH */
@@ -729,12 +773,29 @@ rl_ding ()
 /*								    */
 /* **************************************************************** */
 
+static int enabled_meta = 0;	/* flag indicating we enabled meta mode */
+
 void
 _rl_enable_meta_key ()
 {
 #if !defined (__DJGPP__)
   if (term_has_meta && _rl_term_mm)
-    tputs (_rl_term_mm, 1, _rl_output_character_function);
+    {
+      tputs (_rl_term_mm, 1, _rl_output_character_function);
+      enabled_meta = 1;
+    }
+#endif
+}
+
+void
+_rl_disable_meta_key ()
+{
+#if !defined (__DJGPP__)
+  if (term_has_meta && _rl_term_mo && enabled_meta)
+    {
+      tputs (_rl_term_mo, 1, _rl_output_character_function);
+      enabled_meta = 0;
+    }
 #endif
 }
 
@@ -764,6 +825,7 @@ void
 _rl_set_cursor (im, force)
      int im, force;
 {
+#ifndef __MSDOS__
   if (_rl_term_ve && _rl_term_vs)
     {
       if (force || im != rl_insert_mode)
@@ -774,4 +836,5 @@ _rl_set_cursor (im, force)
 	    tputs (_rl_term_ve, 1, _rl_output_character_function);
 	}
     }
+#endif
 }

@@ -1,22 +1,22 @@
 /* subst.h -- Names of externally visible functions in subst.c. */
 
-/* Copyright (C) 1993-2004 Free Software Foundation, Inc.
+/* Copyright (C) 1993-2010 Free Software Foundation, Inc.
 
    This file is part of GNU Bash, the Bourne Again SHell.
 
-   Bash is free software; you can redistribute it and/or modify it under
-   the terms of the GNU General Public License as published by the Free
-   Software Foundation; either version 2, or (at your option) any later
-   version.
+   Bash is free software: you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation, either version 3 of the License, or
+   (at your option) any later version.
 
-   Bash is distributed in the hope that it will be useful, but WITHOUT ANY
-   WARRANTY; without even the implied warranty of MERCHANTABILITY or
-   FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   for more details.
+   Bash is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
 
-   You should have received a copy of the GNU General Public License along
-   with Bash; see the file COPYING.  If not, write to the Free Software
-   Foundation, 59 Temple Place, Suite 330, Boston, MA 02111 USA. */
+   You should have received a copy of the GNU General Public License
+   along with Bash.  If not, see <http://www.gnu.org/licenses/>.
+*/
 
 #if !defined (_SUBST_H_)
 #define _SUBST_H_
@@ -30,7 +30,8 @@
    decide whether to retain the backslash.  Q_KEEP_BACKSLASH means
    to unconditionally retain the backslash.  Q_PATQUOTE means that we're
    expanding a pattern ${var%#[#%]pattern} in an expansion surrounded
-   by double quotes. */
+   by double quotes. Q_DOLBRACE means we are expanding a ${...} word, so
+   backslashes should also escape { and } and be removed. */
 #define Q_DOUBLE_QUOTES  0x01
 #define Q_HERE_DOCUMENT  0x02
 #define Q_KEEP_BACKSLASH 0x04
@@ -38,10 +39,26 @@
 #define Q_QUOTED	 0x10
 #define Q_ADDEDQUOTES	 0x20
 #define Q_QUOTEDNULL	 0x40
+#define Q_DOLBRACE	 0x80
 
 /* Flag values controlling how assignment statements are treated. */
-#define ASS_APPEND	0x01
-#define ASS_MKLOCAL	0x02
+#define ASS_APPEND	0x0001
+#define ASS_MKLOCAL	0x0002
+#define ASS_MKASSOC	0x0004
+#define ASS_MKGLOBAL	0x0008	/* force global assignment */
+#define ASS_NAMEREF	0x0010	/* assigning to nameref variable */
+
+/* Flags for the string extraction functions. */
+#define SX_NOALLOC	0x0001	/* just skip; don't return substring */
+#define SX_VARNAME	0x0002	/* variable name; for string_extract () */
+#define SX_REQMATCH	0x0004	/* closing/matching delimiter required */
+#define SX_COMMAND	0x0008	/* extracting a shell script/command */
+#define SX_NOCTLESC	0x0010	/* don't honor CTLESC quoting */
+#define SX_NOESCCTLNUL	0x0020	/* don't let CTLESC quote CTLNUL */
+#define SX_NOLONGJMP	0x0040	/* don't longjmp on fatal error */
+#define SX_ARITHSUB	0x0080	/* extracting $(( ... )) (currently unused) */
+#define SX_POSIXEXP	0x0100	/* extracting new Posix pattern removal expansions in extract_dollar_brace_string */
+#define SX_WORD		0x0200	/* extracting word in ${param op word} */
 
 /* Remove backslashes which are quoting backquotes from STRING.  Modifies
    STRING, and returns a pointer to it. */
@@ -52,8 +69,9 @@ extern void unquote_bang __P((char *));
 
 /* Extract the $( construct in STRING, and return a new string.
    Start extracting at (SINDEX) as if we had just seen "$(".
-   Make (SINDEX) get the position just after the matching ")". */
-extern char *extract_command_subst __P((char *, int *));
+   Make (SINDEX) get the position just after the matching ")".
+   XFLAGS is additional flags to pass to other extraction functions, */
+extern char *extract_command_subst __P((char *, int *, int));
 
 /* Extract the $[ construct in STRING, and return a new string.
    Start extracting at (SINDEX) as if we had just seen "$[".
@@ -84,6 +102,12 @@ extern char *string_list_dollar_star __P((WORD_LIST *));
 /* Expand $@ into a single string, obeying POSIX rules. */
 extern char *string_list_dollar_at __P((WORD_LIST *, int));
 
+/* Turn the positional paramters into a string, understanding quoting and
+   the various subtleties of using the first character of $IFS as the
+   separator.  Calls string_list_dollar_at, string_list_dollar_star, and
+   string_list as appropriate. */
+extern char *string_list_pos_params __P((int, WORD_LIST *, int));
+
 /* Perform quoted null character removal on each element of LIST.
    This modifies LIST. */
 extern void word_list_remove_quoted_nulls __P((WORD_LIST *));
@@ -92,6 +116,7 @@ extern void word_list_remove_quoted_nulls __P((WORD_LIST *));
    STRING. */
 extern WORD_LIST *list_string __P((char *, char *, int));
 
+extern char *ifs_firstchar  __P((int *));
 extern char *get_word_from_string __P((char **, char *, char **));
 extern char *strip_trailing_ifs_whitespace __P((char *, char *, int));
 
@@ -102,7 +127,7 @@ extern char *strip_trailing_ifs_whitespace __P((char *, char *, int));
    splitting on the result of expansion. */
 extern int do_assignment __P((char *));
 extern int do_assignment_no_expand __P((char *));
-extern int do_word_assignment __P((WORD_DESC *));
+extern int do_word_assignment __P((WORD_DESC *, int));
 
 /* Append SOURCE to TARGET at INDEX.  SIZE is the current amount
    of space allocated to TARGET.  SOURCE can be NULL, in which
@@ -157,6 +182,9 @@ extern char *expand_arith_string __P((char *, int));
 /* De-quote quoted characters in STRING. */
 extern char *dequote_string __P((char *));
 
+/* De-quote CTLESC-escaped CTLESC or CTLNUL characters in STRING. */
+extern char *dequote_escapes __P((char *));
+
 /* De-quote quoted characters in each word in LIST. */
 extern WORD_LIST *dequote_list __P((WORD_LIST *));
 
@@ -180,6 +208,12 @@ extern char *quote_string __P((char *));
 /* Quote escape characters (characters special to interals of expansion)
    in a string. */
 extern char *quote_escapes __P((char *));
+
+/* And remove such quoted special characters. */
+extern char *remove_quoted_escapes __P((char *));
+
+/* Remove CTLNUL characters from STRING unless they are quoted with CTLESC. */
+extern char *remove_quoted_nulls __P((char *));
 
 /* Perform quote removal on STRING.  If QUOTED > 0, assume we are obeying the
    backslash quoting rules for within double quotes. */
@@ -219,11 +253,17 @@ extern WORD_LIST *expand_words_no_vars __P((WORD_LIST *));
    command substitution, arithmetic expansion, and word splitting. */
 extern WORD_LIST *expand_words_shellexp __P((WORD_LIST *));
 
-extern char *command_substitute __P((char *, int));
+extern WORD_DESC *command_substitute __P((char *, int));
 extern char *pat_subst __P((char *, char *, char *, int));
 
 extern int fifos_pending __P((void));
+extern int num_fifos __P((void));
 extern void unlink_fifo_list __P((void));
+extern void unlink_fifo __P((int));
+
+extern char *copy_fifo_list __P((int *));
+extern void unlink_new_fifos __P((char *, int));
+extern void close_new_fifos __P((char *, int));
 
 extern WORD_LIST *list_string_with_quotes __P((char *));
 
@@ -236,11 +276,21 @@ extern char *remove_backslashes __P((char *));
 extern char *cond_expand_word __P((WORD_DESC *, int));
 #endif
 
+/* Flags for skip_to_delim */
+#define SD_NOJMP	0x01	/* don't longjmp on fatal error. */
+#define SD_INVERT	0x02	/* look for chars NOT in passed set */
+#define SD_NOQUOTEDELIM	0x04	/* don't let single or double quotes act as delimiters */
+#define SD_NOSKIPCMD	0x08	/* don't skip over $(, <(, or >( command/process substitution */
+#define SD_EXTGLOB	0x10	/* skip over extended globbing patterns if appropriate */
+#define SD_IGNOREQUOTE	0x20	/* single and double quotes are not special */
+#define SD_GLOB		0x40	/* skip over glob patterns like bracket expressions */
+
+extern int skip_to_delim __P((char *, int, char *, int));
+
 #if defined (READLINE)
 extern int char_is_quoted __P((char *, int));
 extern int unclosed_pair __P((char *, int, char *));
-extern int skip_to_delim __P((char *, int, char *));
-extern WORD_LIST *split_at_delims __P((char *, int, char *, int, int *, int *));
+extern WORD_LIST *split_at_delims __P((char *, int, char *, int, int, int *, int *));
 #endif
 
 /* Variables used to keep track of the characters in IFS. */

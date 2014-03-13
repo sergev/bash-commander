@@ -1,22 +1,22 @@
-/* jobs.h -- structures and stuff used by the jobs.c file. */
+/* jobs.h -- structures and definitions used by the jobs.c file. */
 
-/* Copyright (C) 1993-2005 Free Software Foundation, Inc.
+/* Copyright (C) 1993-2009 Free Software Foundation, Inc.
 
    This file is part of GNU Bash, the Bourne Again SHell.
 
-   Bash is free software; you can redistribute it and/or modify it under
-   the terms of the GNU General Public License as published by the Free
-   Software Foundation; either version 2, or (at your option) any later
-   version.
+   Bash is free software: you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation, either version 3 of the License, or
+   (at your option) any later version.
 
-   Bash is distributed in the hope that it will be useful, but WITHOUT ANY
-   WARRANTY; without even the implied warranty of MERCHANTABILITY or
-   FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   for more details.
+   Bash is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
 
-   You should have received a copy of the GNU General Public License along
-   with Bash; see the file COPYING.  If not, write to the Free Software
-   Foundation, 59 Temple Place, Suite 330, Boston, MA 02111 USA. */
+   You should have received a copy of the GNU General Public License
+   along with Bash.  If not, see <http://www.gnu.org/licenses/>.
+*/
 
 #if !defined (_JOBS_H_)
 #  define _JOBS_H_
@@ -37,6 +37,9 @@
 
 /* I looked it up.  For pretty_print_job ().  The real answer is 24. */
 #define LONGEST_SIGNAL_DESC 24
+
+/* The max time to sleep while retrying fork() on EAGAIN failure */
+#define FORKSLEEP_MAX	16
 
 /* We keep an array of jobs.  Each entry in the array is a linked list
    of processes that are piped together.  The first process encountered is
@@ -74,7 +77,7 @@ typedef struct process {
 #define get_job_by_jid(ind)	(jobs[(ind)])
 
 /* A description of a pipeline's state. */
-typedef enum { JRUNNING, JSTOPPED, JDEAD, JMIXED } JOB_STATE;
+typedef enum { JNONE = -1, JRUNNING = 1, JSTOPPED = 2, JDEAD = 4, JMIXED = 8 } JOB_STATE;
 #define JOBSTATE(job)	(jobs[(job)]->state)
 #define J_JOBSTATE(j)	((j)->state)
 
@@ -153,6 +156,8 @@ struct bgpids {
 /* A value which cannot be a process ID. */
 #define NO_PID (pid_t)-1
 
+#define ANY_PID (pid_t)-1
+
 /* System calls. */
 #if !defined (HAVE_UNISTD_H)
 extern pid_t fork (), getpid (), getpgrp ();
@@ -162,7 +167,7 @@ extern pid_t fork (), getpid (), getpgrp ();
 extern struct jobstats js;
 
 extern pid_t original_pgrp, shell_pgrp, pipeline_pgrp;
-extern pid_t last_made_pid, last_asynchronous_pid;
+extern volatile pid_t last_made_pid, last_asynchronous_pid;
 extern int asynchronous_notification;
 
 extern JOB **jobs;
@@ -174,6 +179,7 @@ extern void save_pipeline __P((int));
 extern void restore_pipeline __P((int));
 extern void start_pipeline __P((void));
 extern int stop_pipeline __P((int, COMMAND *));
+extern void append_process __P((char *, pid_t, int, int));
 
 extern void delete_job __P((int, int));
 extern void nohup_job __P((int));
@@ -205,10 +211,14 @@ extern pid_t make_child __P((char *, int));
 extern int get_tty_state __P((void));
 extern int set_tty_state __P((void));
 
+extern int job_exit_status __P((int));
+extern int job_exit_signal __P((int));
+
 extern int wait_for_single_pid __P((pid_t));
 extern void wait_for_background_pids __P((void));
 extern int wait_for __P((pid_t));
 extern int wait_for_job __P((int));
+extern int wait_for_any_job __P((void));
 
 extern void notify_and_cleanup __P((void));
 extern void reap_dead_jobs __P((void));
@@ -218,6 +228,9 @@ extern int initialize_job_control __P((int));
 extern void initialize_job_signals __P((void));
 extern int give_terminal_to __P((pid_t, int));
 
+extern void run_sigchld_trap __P((int));
+
+extern void freeze_jobs_list __P((void));
 extern void unfreeze_jobs_list __P((void));
 extern int set_job_control __P((int));
 extern void without_job_control __P((void));
@@ -229,8 +242,12 @@ extern void default_tty_job_signals __P((void));
 
 extern void init_job_stats __P((void));
 
-#if defined (JOB_CONTROL)
-extern int job_control;
-#endif
+extern void close_pgrp_pipe __P((void));
+extern void save_pgrp_pipe __P((int *, int));
+extern void restore_pgrp_pipe __P((int *));
+
+extern void set_maxchild __P((int));
+
+extern int job_control;		/* set to 0 in nojobs.c */
 
 #endif /* _JOBS_H_ */

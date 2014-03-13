@@ -1,22 +1,22 @@
 /* trap.h -- data structures used in the trap mechanism. */
 
-/* Copyright (C) 1993 Free Software Foundation, Inc.
+/* Copyright (C) 1993-2013 Free Software Foundation, Inc.
 
    This file is part of GNU Bash, the Bourne Again SHell.
 
-   Bash is free software; you can redistribute it and/or modify it under
-   the terms of the GNU General Public License as published by the Free
-   Software Foundation; either version 2, or (at your option) any later
-   version.
+   Bash is free software: you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation, either version 3 of the License, or
+   (at your option) any later version.
 
-   Bash is distributed in the hope that it will be useful, but WITHOUT ANY
-   WARRANTY; without even the implied warranty of MERCHANTABILITY or
-   FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   for more details.
+   Bash is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
 
-   You should have received a copy of the GNU General Public License along
-   with Bash; see the file COPYING.  If not, write to the Free Software
-   Foundation, 59 Temple Place, Suite 330, Boston, MA 02111 USA. */
+   You should have received a copy of the GNU General Public License
+   along with Bash.  If not, see <http://www.gnu.org/licenses/>.
+*/
 
 #if !defined (_TRAP_H_)
 #define _TRAP_H_
@@ -46,8 +46,11 @@
 #define BASH_NSIG	NSIG+3
 
 /* Flags values for decode_signal() */
-#define DSIG_SIGPREFIX	0x01		/* don't alllow `SIG' PREFIX */
+#define DSIG_SIGPREFIX	0x01		/* don't allow `SIG' PREFIX */
 #define DSIG_NOCASE	0x02		/* case-insensitive comparison */
+
+/* A value which can never be the target of a trap handler. */
+#define IMPOSSIBLE_TRAP_HANDLER (SigHandler *)initialize_traps
 
 #define signal_object_p(x,f) (decode_signal (x,f) != NO_SIG)
 
@@ -62,7 +65,9 @@ extern void initialize_traps __P((void));
 
 extern void run_pending_traps __P((void));
 
+extern void queue_sigchld_trap __P((int));
 extern void maybe_set_sigchld_trap __P((char *));
+extern void set_impossible_sigchld_trap __P((void));
 extern void set_sigchld_trap __P((char *));
 
 extern void set_debug_trap __P((char *));
@@ -84,15 +89,25 @@ extern void free_trap_strings __P((void));
 extern void reset_signal_handlers __P((void));
 extern void restore_original_signals __P((void));
 
+extern void get_original_signal __P((int));
+extern void get_all_original_signals __P((void));
+
 extern char *signal_name __P((int));
 
 extern int decode_signal __P((char *, int));
 extern void run_interrupt_trap __P((void));
 extern int maybe_call_trap_handler __P((int));
-extern int signal_is_trapped __P((int));
-extern int signal_is_ignored __P((int));
 extern int signal_is_special __P((int));
+extern int signal_is_trapped __P((int));
+extern int signal_is_pending __P((int));
+extern int signal_is_ignored __P((int));
+extern int signal_is_hard_ignored __P((int));
+extern void set_signal_hard_ignored __P((int));
 extern void set_signal_ignored __P((int));
 extern int signal_in_progress __P((int));
+
+extern int first_pending_trap __P((void));
+extern int any_signals_trapped __P((void));
+extern void check_signals_and_traps __P((void));
 
 #endif /* _TRAP_H_ */

@@ -1,20 +1,22 @@
+/* shquote - functions to quote and dequote strings */
+
 /* Copyright (C) 1999 Free Software Foundation, Inc.
 
    This file is part of GNU Bash, the Bourne Again SHell.
 
-   Bash is free software; you can redistribute it and/or modify it under
-   the terms of the GNU General Public License as published by the Free
-   Software Foundation; either version 2, or (at your option) any later
-   version.
+   Bash is free software: you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation, either version 3 of the License, or
+   (at your option) any later version.
 
-   Bash is distributed in the hope that it will be useful, but WITHOUT ANY
-   WARRANTY; without even the implied warranty of MERCHANTABILITY or
-   FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   for more details.
-   
-   You should have received a copy of the GNU General Public License along
-   with Bash; see the file COPYING.  If not, write to the Free Software
-   Foundation, 59 Temple Place, Suite 330, Boston, MA 02111 USA. */
+   Bash is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with Bash.  If not, see <http://www.gnu.org/licenses/>.
+*/
 
 #include <config.h>
 
@@ -30,6 +32,50 @@
 #include "syntax.h"
 #include <xmalloc.h>
 
+/* Default set of characters that should be backslash-quoted in strings */
+static const char bstab[256] =
+  {
+    0, 0, 0, 0, 0, 0, 0, 0,
+    0, 1, 1, 0, 0, 0, 0, 0,	/* TAB, NL */
+    0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0,
+
+    1, 1, 1, 0, 1, 0, 1, 1,	/* SPACE, !, DQUOTE, DOL, AMP, SQUOTE */
+    1, 1, 1, 0, 1, 0, 0, 0,	/* LPAR, RPAR, STAR, COMMA */
+    0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 1, 1, 0, 1, 1,	/* SEMI, LESSTHAN, GREATERTHAN, QUEST */
+
+    0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 1, 1, 1, 1, 0,	/* LBRACK, BS, RBRACK, CARAT */
+
+    1, 0, 0, 0, 0, 0, 0, 0,	/* BACKQ */
+    0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 1, 1, 1, 0, 0,	/* LBRACE, BAR, RBRACE */
+
+    0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0,
+
+    0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0,
+
+    0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0,
+
+    0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0,
+  };
+
 /* **************************************************************** */
 /*								    */
 /*	 Functions for quoting strings to be re-read as input	    */
@@ -40,13 +86,23 @@
    Used by alias and trap, among others. */
 char *
 sh_single_quote (string)
-     char *string;
+     const char *string;
 {
   register int c;
-  char *result, *r, *s;
+  char *result, *r;
+  const char *s;
 
   result = (char *)xmalloc (3 + (4 * strlen (string)));
   r = result;
+
+  if (string[0] == '\'' && string[1] == 0)
+    {
+      *r++ = '\\';
+      *r++ = '\'';
+      *r++ = 0;
+      return result;
+    }
+
   *r++ = '\'';
 
   for (s = string; s && (c = *s); s++)
@@ -70,10 +126,11 @@ sh_single_quote (string)
 /* Quote STRING using double quotes.  Return a new string. */
 char *
 sh_double_quote (string)
-     char *string;
+     const char *string;
 {
   register unsigned char c;
-  char *result, *r, *s;
+  char *result, *r;
+  const char *s;
 
   result = (char *)xmalloc (3 + (2 * strlen (string)));
   r = result;
@@ -159,53 +216,33 @@ sh_un_double_quote (string)
    way to protect the CTLESC and CTLNUL characters.  As I write this,
    the current callers will never cause the string to be expanded without
    going through the shell parser, which will protect the internal
-   quoting characters. */
+   quoting characters.  TABLE, if set, points to a map of the ascii code
+   set with char needing to be backslash-quoted if table[char]==1.  FLAGS,
+   if 1, causes tildes to be quoted as well. */
+   
 char *
-sh_backslash_quote (string)
+sh_backslash_quote (string, table, flags)
      char *string;
+     char *table;
+     int flags;
 {
   int c;
-  char *result, *r, *s;
+  char *result, *r, *s, *backslash_table;
 
   result = (char *)xmalloc (2 * strlen (string) + 1);
 
+  backslash_table = table ? table : (char *)bstab;
   for (r = result, s = string; s && (c = *s); s++)
     {
-      switch (c)
-	{
-	case ' ': case '\t': case '\n':		/* IFS white space */
-	case '\'': case '"': case '\\':		/* quoting chars */
-	case '|': case '&': case ';':		/* shell metacharacters */
-	case '(': case ')': case '<': case '>':
-	case '!': case '{': case '}':		/* reserved words */
-	case '*': case '[': case '?': case ']':	/* globbing chars */
-	case '^':
-	case '$': case '`':			/* expansion chars */
-	case ',':				/* brace expansion */
-	  *r++ = '\\';
-	  *r++ = c;
-	  break;
-#if 0
-	case '~':				/* tilde expansion */
-	  if (s == string || s[-1] == '=' || s[-1] == ':')
-	    *r++ = '\\';
-	  *r++ = c;
-	  break;
-
-	case CTLESC: case CTLNUL:		/* internal quoting characters */
-	  *r++ = CTLESC;			/* could be '\\'? */
-	  *r++ = c;
-	  break;
-#endif
-
-	case '#':				/* comment char */
-	  if (s == string)
-	    *r++ = '\\';
-	  /* FALLTHROUGH */
-	default:
-	  *r++ = c;
-	  break;
-	}
+      if (backslash_table[c] == 1)
+	*r++ = '\\';
+      else if (c == '#' && s == string)			/* comment char */
+	*r++ = '\\';
+      else if ((flags&1) && c == '~' && (s == string || s[-1] == ':' || s[-1] == '='))
+        /* Tildes are special at the start of a word or after a `:' or `='
+	   (technically unquoted, but it doesn't make a difference in practice) */
+	*r++ = '\\';
+      *r++ = c;
     }
 
   *r = '\0';

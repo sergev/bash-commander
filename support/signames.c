@@ -4,19 +4,19 @@
 
    This file is part of GNU Bash, the Bourne Again SHell.
 
-   Bash is free software; you can redistribute it and/or modify it under
-   the terms of the GNU General Public License as published by the Free
-   Software Foundation; either version 2, or (at your option) any later
-   version.
+   Bash is free software: you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation, either version 3 of the License, or
+   (at your option) any later version.
 
-   Bash is distributed in the hope that it will be useful, but WITHOUT ANY
-   WARRANTY; without even the implied warranty of MERCHANTABILITY or
-   FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   for more details.
+   Bash is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
 
-   You should have received a copy of the GNU General Public License along
-   with Bash; see the file COPYING.  If not, write to the Free Software
-   Foundation, 59 Temple Place, Suite 330, Boston, MA 02111 USA. */
+   You should have received a copy of the GNU General Public License
+   along with Bash.  If not, see <http://www.gnu.org/licenses/>.
+*/
 
 #include <config.h>
 
@@ -85,7 +85,7 @@ initialize_signames ()
 
   /* POSIX 1003.1b-1993 real time signals, but take care of incomplete
      implementations. Acoording to the standard, both, SIGRTMIN and
-     SIGRTMAX must be defined, SIGRTMIN must be stricly less than
+     SIGRTMAX must be defined, SIGRTMIN must be strictly less than
      SIGRTMAX, and the difference must be at least 7, that is, there
      must be at least eight distinct real time signals. */
 
@@ -192,24 +192,32 @@ initialize_signames ()
 #endif
 
 /* SunOS5 */
-#if defined (SIGLWP)	/* special signal used by thread library */
+#if defined (SIGLWP)	/* Solaris: special signal used by thread library */
   signal_names[SIGLWP] = "SIGLWP";
 #endif
 
-#if defined (SIGFREEZE)	/* special signal used by CPR */
+#if defined (SIGFREEZE)	/* Solaris: special signal used by CPR */
   signal_names[SIGFREEZE] = "SIGFREEZE";
 #endif
 
-#if defined (SIGTHAW)	/* special signal used by CPR */
+#if defined (SIGTHAW)	/* Solaris: special signal used by CPR */
   signal_names[SIGTHAW] = "SIGTHAW";
 #endif
 
-#if defined (SIGCANCEL)	/* thread cancellation signal used by libthread */
+#if defined (SIGCANCEL)	/* Solaris: thread cancellation signal used by libthread */
   signal_names[SIGCANCEL] = "SIGCANCEL";
 #endif
 
-#if defined (SIGXRES)	/* resource control exceeded */
+#if defined (SIGXRES)	/* Solaris: resource control exceeded */
   signal_names[SIGXRES] = "SIGXRES";
+#endif
+
+#if defined (SIGJVM1)	/* Solaris: Java Virtual Machine 1 */
+  signal_names[SIGJVM1] = "SIGJVM1";
+#endif
+
+#if defined (SIGJVM2)	/* Solaris: Java Virtual Machine 2 */
+  signal_names[SIGJVM2] = "SIGJVM2";
 #endif
 
 /* HP-UX */

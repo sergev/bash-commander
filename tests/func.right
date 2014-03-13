@@ -27,7 +27,7 @@ f1 ()
     return $status
 }
 before: try to assign to FUNCNAME
-outside: FUNCNAME = main
+outside: FUNCNAME =
 before: FUNCNAME = func
 FUNCNAME = func2
 after: FUNCNAME = func
@@ -136,6 +136,11 @@ funcc ()
 func-a
 func-b
 func-c
+foo-bar
+foo-bar () 
+{ 
+    :
+}
 expect 5 10
 5 10
 expect 20
@@ -148,4 +153,17 @@ expect 2 40
 2 40
 expect 5 20
 5 20
+./func4.sub: line 10: foo: maximum function nesting level exceeded (100)
+1
+after: f = 100
+./func4.sub: line 10: foo: maximum function nesting level exceeded (100)
+1
+after: f = 100
+7
+after FUNCNEST reset: f = 201
+7
+after FUNCNEST unset: f = 201
+./func4.sub: line 10: foo: maximum function nesting level exceeded (20)
+1
+after FUNCNEST assign: f = 38
 5

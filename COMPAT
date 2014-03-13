@@ -1,10 +1,14 @@
+Compatibility with previous versions
+====================================
+
 This document details the incompatibilities between this version of bash,
-bash-3.2, and the previous widely-available versions, bash-1.14 (which is
-still the `standard' version for a few Linux distributions) and bash-2.x. 
-These were discovered by users of bash-2.x and 3.x, so this list is not
-comprehensive.  Some of these incompatibilities occur between the current
-version and versions 2.0 and above.  (The differences between bash-1.14 and
-bash-2.0 were significant.)
+bash-4.3, and the previous widely-available versions, bash-3.x (which is
+still the `standard' version for Mac OS X), 4.0/4.1 (which are still
+standard on a few Linux distributions), and bash-4.2, the current
+widely-available version.  These were discovered by users of bash-2.x
+through 4.x, so this list is not comprehensive.  Some of these
+incompatibilities occur between the current version and versions 2.0 and
+above. 
 
 1.  Bash uses a new quoting syntax, $"...", to do locale-specific
     string translation.  Users who have relied on the (undocumented)
@@ -271,5 +275,151 @@ bash-2.0 were significant.)
     file permission bits obtained with stat(2).  This obeys restrictions of
     the file system (e.g., read-only or noexec mounts) not available via stat.
 
-33. Beginning with bash-3.1/readline-5.1, the readline key binding code obeys
-    the current setting of the `convert-meta' variable.
+33. Bash-3.2 adopts the convention used by other string and pattern matching
+    operators for the `[[' compound command, and matches any quoted portion
+    of the right-hand-side argument to the =~ operator as a string rather
+    than a regular expression.
+
+34. Bash-4.0 allows the behavior in the previous item to be modified using
+    the notion of a shell `compatibility level'.  If the compat31 shopt
+    option is set, quoting the pattern has no special effect.
+
+35. Bash-3.2 (patched) and Bash-4.0 fix a bug that leaves the shell in an
+    inconsistent internal state following an assignment error.  One of the
+    changes means that compound commands or { ... } grouping commands are
+    aborted under some circumstances in which they previously were not.
+    This is what Posix specifies.
+
+36. Bash-4.0 now allows process substitution constructs to pass unchanged
+    through brace expansion, so any expansion of the contents will have to be
+    separately specified, and each process subsitution will have to be
+    separately entered.
+
+37. Bash-4.0 now allows SIGCHLD to interrupt the wait builtin, as Posix
+    specifies, so the SIGCHLD trap is no longer always invoked once per
+    exiting child if you are using `wait' to wait for all children.  As
+    of bash-4.2, this is the status quo only when in posix mode.
+
+38. Since bash-4.0 now follows Posix rules for finding the closing delimiter
+    of a $() command substitution, it will not behave as previous versions
+    did, but will catch more syntax and parsing errors before spawning a
+    subshell to evaluate the command substitution.
+
+39. The programmable completion code uses the same set of delimiting characters
+    as readline when breaking the command line into words, rather than the
+    set of shell metacharacters, so programmable completion and readline
+    should be more consistent.
+
+40. When the read builtin times out, it attempts to assign any input read to
+    specified variables, which also causes variables to be set to the empty
+    string if there is not enough input.  Previous versions discarded the
+    characters read.
+
+41. Beginning with bash-4.0, when one of the commands in a pipeline is killed
+    by a SIGINT while executing a command list, the shell acts as if it
+    received the interrupt.  This can be disabled by setting the compat31 or
+    compat32 shell options.
+
+42. Bash-4.0 changes the handling of the set -e option so that the shell exits
+    if a pipeline fails (and not just if the last command in the failing
+    pipeline is a simple command).  This is not as Posix specifies.  There is
+    work underway to update this portion of the standard; the bash-4.0
+    behavior attempts to capture the consensus at the time of release.
+
+43. Bash-4.0 fixes a Posix mode bug that caused the . (source) builtin to
+    search the current directory for its filename argument, even if "." is
+    not in $PATH.  Posix says that the shell shouldn't look in $PWD in this
+    case.
+
+44. Bash-4.1 uses the current locale when comparing strings using the < and
+    > operators to the `[[' command.  This can be reverted to the previous
+    behavior (ASCII collating and strcmp(3)) by setting one of the
+    `compatNN' shopt options, where NN is less than 41.
+
+45. Bash-4.1 conforms to the current Posix specification for `set -u':
+    expansions of $@ and $* when there are no positional parameters do not
+    cause the shell to exit.
+
+46. Bash-4.1 implements the current Posix specification for `set -e' and
+    exits when any command fails, not just a simple command or pipeline.
+
+47. Command substitutions now remove the caller's trap strings when trap is
+    run to set a new trap in the subshell.  Previous to bash-4.2, the old
+    trap strings persisted even though the actual signal handlers were reset.
+
+48. When in Posix mode, a single quote is not treated specially in a
+    double-quoted ${...} expansion, unless the expansion operator is
+    # or % or the new `//', `^', or `,' expansions.  In particular, it
+    does not define a new quoting context.  This is from Posix interpretation
+    221.
+
+49. Posix mode shells no longer exit if a variable assignment error occurs
+    with an assignment preceding a command that is not a special builtin.
+
+50. Bash-4.2 attempts to preserve what the user typed when performing word
+    completion, instead of, for instance, expanding shell variable
+    references to their value.
+
+51. When in Posix mode, bash-4.2 exits if the filename supplied as an argument
+    to `.' is not found and the shell is not interactive.
+
+52. When compiled for strict Posix compatibility, bash-4.3 does not enable
+    history expansion by default in interactive shells, since it results in
+    a non-conforming environment.
+
+53. Bash-4.3 runs the replacement string in the pattern substitution word
+    expansion through quote removal.  The code already treats quote
+    characters in the replacement string as special; if it treats them as
+    special, then quote removal should remove them.
+
+Shell Compatibility Level
+=========================
+
+Bash-4.0 introduced the concept of a `shell compatibility level', specified
+as a set of options to the shopt builtin (compat31, compat32, compat40, 
+compat41, and compat42 at this writing).  There is only one current
+compatibility level -- each option is mutually exclusive.  This list does not
+mention behavior that is standard for a particular version (e.g., setting
+compat32 means that quoting the rhs of the regexp matching operator quotes
+special regexp characters in the word, which is default behavior in bash-3.2
+and above).
+
+Bash-4.3 introduces a new shell variable: BASH_COMPAT.  The value assigned
+to this variable (a decimal version number like 4.2, or an integer
+corresponding to the compatNN option, like 42) determines the compatibility
+level.
+
+compat31 set
+	- the < and > operators to the [[ command do not consider the current
+	  locale when comparing strings; they use ASCII ordering
+	- quoting the rhs of the regexp matching operator (=~) has no
+	  special effect
+
+compat32 set
+	- the < and > operators to the [[ command do not consider the current
+	  locale when comparing strings; they use ASCII ordering
+
+compat40 set
+	- the < and > operators to the [[ command do not consider the current
+	  locale when comparing strings; they use ASCII ordering
+	- interrupting a command list such as "a ; b ; c" causes the execution
+	  of the entire list to be aborted (in versions before bash-4.0,
+	  interrupting one command in a list caused the next to be executed)
+
+compat41 set
+	- interrupting a command list such as "a ; b ; c" causes the execution
+	  of the entire list to be aborted (in versions before bash-4.1,
+	  interrupting one command in a list caused the next to be executed)
+	- when in posix mode, single quotes in the `word' portion of a
+	  double-quoted parameter expansion define a new quoting context and
+	  are treated specially
+
+compat42 set
+	- the replacement string in double-quoted pattern substitution is not
+	  run through quote removal, as in previous versions
+-------------------------------------------------------------------------------
+
+Copying and distribution of this file, with or without modification,
+are permitted in any medium without royalty provided the copyright
+notice and this notice are preserved.  This file is offered as-is,
+without any warranty.

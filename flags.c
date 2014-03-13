@@ -1,25 +1,24 @@
 /* flags.c -- Everything about flags except the `set' command.  That
    is in builtins.c */
 
-/* Copyright (C) 1987,1989 Free Software Foundation, Inc.
+/* Copyright (C) 1987-2009 Free Software Foundation, Inc.
 
-This file is part of GNU Bash, the Bourne Again SHell.
+   This file is part of GNU Bash, the Bourne Again SHell.
 
-Bash is free software; you can redistribute it and/or modify it under
-the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
-version.
+   Bash is free software: you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation, either version 3 of the License, or
+   (at your option) any later version.
 
-Bash is distributed in the hope that it will be useful, but WITHOUT ANY
-WARRANTY; without even the implied warranty of MERCHANTABILITY or
-FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-for more details.
+   Bash is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
 
-You should have received a copy of the GNU General Public License along
-with Bash; see the file COPYING.  If not, write to the Free Software
-Foundation, 59 Temple Place, Suite 330, Boston, MA 02111 USA. */
+   You should have received a copy of the GNU General Public License
+   along with Bash.  If not, see <http://www.gnu.org/licenses/>.
+*/
 
-/* Flags hacking. */
 #include "config.h"
 #if defined (HAVE_UNISTD_H)
 #  include <unistd.h>
@@ -41,13 +40,14 @@ extern char *shell_name;
 #endif
 
 extern int shell_initialized;
+extern int builtin_ignoring_errexit;
 
 /* -c, -s invocation options -- not really flags, but they show up in $- */
 extern int want_pending_command, read_from_stdin;
 
 /* **************************************************************** */
 /*								    */
-/*			The Standard Sh Flags.			    */
+/*			The Standard sh Flags.			    */
 /*								    */
 /* **************************************************************** */
 
@@ -60,7 +60,9 @@ int mark_modified_vars = 0;
 int asynchronous_notification = 0;
 
 /* Non-zero means exit immediately if a command exits with a non-zero
-   exit status. */
+   exit status.  The first is what controls set -e; the second is what
+   bash uses internally. */
+int errexit_flag = 0;
 int exit_immediately_on_error = 0;
 
 /* Non-zero means disable filename globbing. */
@@ -127,7 +129,11 @@ int hashing_enabled = 1;
 #if defined (BANG_HISTORY)
 /* Non-zero means that we are doing history expansion.  The default.
    This means !22 gets the 22nd line of history. */
+#  if defined (STRICT_POSIX)
+int history_expansion = 0;
+#  else
 int history_expansion = 1;
+#  endif
 #endif /* BANG_HISTORY */
 
 /* Non-zero means that we allow comments to appear in interactive commands. */
@@ -170,13 +176,13 @@ int pipefail_opt = 0;
 /*								    */
 /* **************************************************************** */
 
-struct flags_alist shell_flags[] = {
+const struct flags_alist shell_flags[] = {
   /* Standard sh flags. */
   { 'a', &mark_modified_vars },
 #if defined (JOB_CONTROL)
   { 'b', &asynchronous_notification },
 #endif /* JOB_CONTROL */
-  { 'e', &exit_immediately_on_error },
+  { 'e', &errexit_flag },
   { 'f', &disallow_filename_globbing },
   { 'h', &hashing_enabled },
   { 'i', &forced_interactive },
@@ -251,7 +257,6 @@ change_flag (flag, on_or_off)
     return (FLAG_ERROR);
 
   old_value = *value;
-
   *value = (on_or_off == FLAG_ON) ? 1 : 0;
 
   /* Special cases for a few flags. */
@@ -269,6 +274,11 @@ change_flag (flag, on_or_off)
       set_job_control (on_or_off == FLAG_ON);
       break;
 #endif /* JOB_CONTROL */
+
+    case 'e':
+      if (builtin_ignoring_errexit == 0)
+	exit_immediately_on_error = errexit_flag;
+      break;
 
     case 'n':
       if (interactive_shell)

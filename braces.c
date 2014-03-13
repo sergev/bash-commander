@@ -1,22 +1,22 @@
 /* braces.c -- code for doing word expansion in curly braces. */
 
-/* Copyright (C) 1987-2003 Free Software Foundation, Inc.
+/* Copyright (C) 1987-2012 Free Software Foundation, Inc.
 
    This file is part of GNU Bash, the Bourne Again SHell.
 
-   Bash is free software; you can redistribute it and/or modify it
-   under the terms of the GNU General Public License as published by
-   the Free Software Foundation; either version 2, or (at your option)
-   any later version.
+   Bash is free software: you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation, either version 3 of the License, or
+   (at your option) any later version.
 
-   Bash is distributed in the hope that it will be useful, but WITHOUT
-   ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-   or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
-   License for more details.
+   Bash is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
 
    You should have received a copy of the GNU General Public License
-   along with Bash; see the file COPYING.  If not, write to the Free
-   Software Foundation, 59 Temple Place, Suite 330, Boston, MA 02111 USA. */
+   along with Bash.  If not, see <http://www.gnu.org/licenses/>.
+*/
 
 /* Stuff in curly braces gets expanded before all other shell expansions. */
 
@@ -31,19 +31,31 @@
 #  include <unistd.h>
 #endif
 
+#include <errno.h>
+
 #include "bashansi.h"
+#include "bashintl.h"
 
 #if defined (SHELL)
 #  include "shell.h"
 #endif /* SHELL */
 
+#include "typemax.h"		/* INTMAX_MIN, INTMAX_MAX */
 #include "general.h"
 #include "shmbutil.h"
 #include "chartypes.h"
 
+#ifndef errno
+extern int errno;
+#endif
+
 #define brace_whitespace(c) (!(c) || (c) == ' ' || (c) == '\t' || (c) == '\n')
 
 #define BRACE_SEQ_SPECIFIER	".."
+
+extern int asprintf __P((char **, const char *, ...)) __attribute__((__format__ (printf, 2, 3)));
+
+extern int last_command_exit_value;
 
 /* Basic idea:
 
@@ -55,13 +67,13 @@
  */
 
 /* The character which is used to separate arguments. */
-int brace_arg_separator = ',';
+static const int brace_arg_separator = ',';
 
 #if defined (__P)
 static int brace_gobbler __P((char *, size_t, int *, int));
 static char **expand_amble __P((char *, size_t, int));
 static char **expand_seqterm __P((char *, size_t));
-static char **mkseq __P((int, int, int, int));
+static char **mkseq __P((intmax_t, intmax_t, intmax_t, int, int));
 static char **array_concat __P((char **, char **));
 #else
 static int brace_gobbler ();
@@ -134,7 +146,8 @@ brace_expand (text)
 #endif /* !CSH_BRACE_COMPAT */
 
   preamble = (char *)xmalloc (i + 1);
-  strncpy (preamble, text, i);
+  if (i > 0)
+    strncpy (preamble, text, i);
   preamble[i] = '\0';
 
   result = (char **)xmalloc (2 * sizeof (char *));
@@ -169,6 +182,7 @@ brace_expand (text)
 	  if (text[j] == brace_arg_separator)
 	    {	/* { */
 	      strvec_dispose (result);
+	      last_command_exit_value = 1;
 	      report_error ("no closing `%c' in %s", '}', text);
 	      throw_to_top_level ();
 	    }
@@ -216,6 +230,19 @@ brace_expand (text)
       tack = expand_seqterm (amble, alen);
       if (tack)
 	goto add_tack;
+      else if (text[i + 1])
+	{
+	  /* If the sequence expansion fails (e.g., because the integers
+	     overflow), but there is more in the string, try and process
+	     the rest of the string, which may contain additional brace
+	     expansions.  Treat the unexpanded sequence term as a simple
+	     string (including the braces). */
+	  tack = strvec_create (2);
+	  tack[0] = savestring (text+start-1);
+	  tack[0][i-start+2] = '\0';
+	  tack[1] = (char *)0;
+	  goto add_tack;
+	}
       else
 	{
 	  free (amble);
@@ -230,13 +257,18 @@ brace_expand (text)
 add_tack:
   result = array_concat (result, tack);
   free (amble);
-  strvec_dispose (tack);
+  if (tack != result)
+    strvec_dispose (tack);
 
   postamble = text + i + 1;
 
-  tack = brace_expand (postamble);
-  result = array_concat (result, tack);
-  strvec_dispose (tack);
+  if (postamble && *postamble)
+    {
+      tack = brace_expand (postamble);
+      result = array_concat (result, tack);
+      if (tack != result)
+	strvec_dispose (tack);
+    }
 
   return (result);
 }
@@ -251,7 +283,7 @@ expand_amble (text, tlen, flags)
      size_t tlen;
      int flags;
 {
-  char **result, **partial;
+  char **result, **partial, **tresult;
   char *tem;
   int start, i, c;
 
@@ -283,7 +315,16 @@ expand_amble (text, tlen, flags)
 	  lr = strvec_len (result);
 	  lp = strvec_len (partial);
 
-	  result = strvec_resize (result, lp + lr + 1);
+	  tresult = strvec_mresize (result, lp + lr + 1);
+	  if (tresult == 0)
+	    {
+	      internal_error (_("brace expansion: cannot allocate memory for %s"), tem);
+	      strvec_dispose (result);
+	      result = (char **)NULL;
+	      return result;
+	    }
+	  else
+	    result = tresult;
 
 	  for (j = 0; j < lp; j++)
 	    result[lr + j] = partial[j];
@@ -301,24 +342,77 @@ expand_amble (text, tlen, flags)
 #define ST_BAD	0
 #define ST_INT	1
 #define ST_CHAR	2
+#define ST_ZINT	3
+
+#ifndef sh_imaxabs
+#  define sh_imaxabs(x)	(((x) >= 0) ? (x) : -(x))
+#endif
+
+/* Handle signed arithmetic overflow and underflow.  Have to do it this way
+   to avoid compilers optimizing out simpler overflow checks. */
+
+/* Make sure that a+b does not exceed MAXV or is smaller than MINV (if b < 0).
+   Assumes that b > 0 if a > 0 and b < 0 if a < 0 */
+#define ADDOVERFLOW(a,b,minv,maxv) \
+	((((a) > 0) && ((b) > ((maxv) - (a)))) || \
+	 (((a) < 0) && ((b) < ((minv) - (a)))))
+
+/* Make sure that a-b is not smaller than MINV or exceeds MAXV (if b < 0).
+   Assumes that b > 0 if a > 0 and b < 0 if a < 0 */
+#define SUBOVERFLOW(a,b,minv,maxv) \
+	((((b) > 0) && ((a) < ((minv) + (b)))) || \
+	 (((b) < 0) && ((a) > ((maxv) + (b)))))
 
 static char **
-mkseq (start, end, incr, type)
-     int start, end, incr, type;
+mkseq (start, end, incr, type, width)
+     intmax_t start, end, incr;
+     int type, width;
 {
-  int n, i;
+  intmax_t n, prevn;
+  int i, j, nelem;
   char **result, *t;
-
-  n = abs (end - start) + 1;
-  result = strvec_create (n + 1);
 
   if (incr == 0)
     incr = 1;
-  
+
   if (start > end && incr > 0)
     incr = -incr;
   else if (start < end && incr < 0)
-    incr = -incr;
+    {
+      if (incr == INTMAX_MIN)		/* Don't use -INTMAX_MIN */
+	return ((char **)NULL);
+      incr = -incr;
+    }
+
+  /* Check that end-start will not overflow INTMAX_MIN, INTMAX_MAX.  The +3
+     and -2, not strictly necessary, are there because of the way the number
+     of elements and value passed to strvec_create() are calculated below. */
+  if (SUBOVERFLOW (end, start, INTMAX_MIN+3, INTMAX_MAX-2))
+    return ((char **)NULL);
+
+  prevn = sh_imaxabs (end - start);
+  /* Need to check this way in case INT_MAX == INTMAX_MAX */
+  if (INT_MAX == INTMAX_MAX && (ADDOVERFLOW (prevn, 2, INT_MIN, INT_MAX)))
+    return ((char **)NULL);
+  /* Make sure the assignment to nelem below doesn't end up <= 0 due to
+     intmax_t overflow */
+  else if (ADDOVERFLOW ((prevn/sh_imaxabs(incr)), 1, INTMAX_MIN, INTMAX_MAX))
+    return ((char **)NULL);
+
+  /* XXX - TOFIX: potentially allocating a lot of extra memory if
+     imaxabs(incr) != 1 */
+  /* Instead of a simple nelem = prevn + 1, something like:
+  	nelem = (prevn / imaxabs(incr)) + 1;
+     would work */
+  nelem = (prevn / sh_imaxabs(incr)) + 1;
+  if (nelem > INT_MAX - 2)		/* Don't overflow int */
+    return ((char **)NULL);
+  result = strvec_mcreate (nelem + 1);
+  if (result == 0)
+    {
+      internal_error (_("brace expansion: failed to allocate memory for %d elements"), nelem);
+      return ((char **)NULL);
+    }
 
   /* Make sure we go through the loop at least once, so {3..3} prints `3' */
   i = 0;
@@ -329,17 +423,45 @@ mkseq (start, end, incr, type)
       QUIT;		/* XXX - memory leak here */
 #endif
       if (type == ST_INT)
-	result[i++] = itos (n);
-      else
+	result[i++] = t = itos (n);
+      else if (type == ST_ZINT)
 	{
-	  t = (char *)xmalloc (2);
-	  t[0] = n;
-	  t[1] = '\0';
+	  int len, arg;
+	  arg = n;
+	  len = asprintf (&t, "%0*d", width, arg);
 	  result[i++] = t;
 	}
-      if (n == end)
+      else
+	{
+	  if (t = (char *)malloc (2))
+	    {
+	      t[0] = n;
+	      t[1] = '\0';
+	    }
+	  result[i++] = t;
+	}
+
+      /* We failed to allocate memory for this number, so we bail. */
+      if (t == 0)
+	{
+	  char *p, lbuf[INT_STRLEN_BOUND(intmax_t) + 1];
+
+	  /* Easier to do this than mess around with various intmax_t printf
+	     formats (%ld? %lld? %jd?) and PRIdMAX. */
+	  p = inttostr (n, lbuf, sizeof (lbuf));
+	  internal_error (_("brace expansion: failed to allocate memory for `%s'"), p);
+	  strvec_dispose (result);
+	  return ((char **)NULL);
+	}
+
+      /* Handle overflow and underflow of n+incr */
+      if (ADDOVERFLOW (n, incr, INTMAX_MIN, INTMAX_MAX))
         break;
+
       n += incr;
+
+      if ((incr < 0 && n < end) || (incr > 0 && n > end))
+	break;
     }
   while (1);
 
@@ -353,17 +475,18 @@ expand_seqterm (text, tlen)
      size_t tlen;
 {
   char *t, *lhs, *rhs;
-  int i, lhs_t, rhs_t, lhs_v, rhs_v;
+  int i, lhs_t, rhs_t, lhs_l, rhs_l, width;
+  intmax_t lhs_v, rhs_v, incr;
   intmax_t tl, tr;
-  char **result;
+  char **result, *ep, *oep;
 
   t = strstr (text, BRACE_SEQ_SPECIFIER);
   if (t == 0)
     return ((char **)NULL);
 
-  i = t - text;		/* index of start of BRACE_SEQ_SPECIFIER */
-  lhs = substring (text, 0, i);
-  rhs = substring (text, i + sizeof(BRACE_SEQ_SPECIFIER) - 1, tlen);
+  lhs_l = t - text;		/* index of start of BRACE_SEQ_SPECIFIER */
+  lhs = substring (text, 0, lhs_l);
+  rhs = substring (text, lhs_l + sizeof(BRACE_SEQ_SPECIFIER) - 1, tlen);
 
   if (lhs[0] == 0 || rhs[0] == 0)
     {
@@ -376,8 +499,40 @@ expand_seqterm (text, tlen)
      sides have to match. */
   lhs_t = (legal_number (lhs, &tl)) ? ST_INT :
   		((ISALPHA (lhs[0]) && lhs[1] == 0) ?  ST_CHAR : ST_BAD);
-  rhs_t = (legal_number (rhs, &tr)) ? ST_INT :
-  		((ISALPHA (rhs[0]) && rhs[1] == 0) ?  ST_CHAR : ST_BAD);
+
+  /* Decide on rhs and whether or not it looks like the user specified
+     an increment */
+  ep = 0;
+  if (ISDIGIT (rhs[0]) || ((rhs[0] == '+' || rhs[0] == '-') && ISDIGIT (rhs[1])))
+    {
+      rhs_t = ST_INT;
+      errno = 0;
+      tr = strtoimax (rhs, &ep, 10);
+      if (errno == ERANGE || (ep && *ep != 0 && *ep != '.'))
+	rhs_t = ST_BAD;			/* invalid */
+    }
+  else if (ISALPHA (rhs[0]) && (rhs[1] == 0 || rhs[1] == '.'))
+    {
+      rhs_t = ST_CHAR;
+      ep = rhs + 1;
+    }
+  else
+    {
+      rhs_t = ST_BAD;
+      ep = 0;
+    }
+
+  incr = 1;
+  if (rhs_t != ST_BAD)
+    {
+      oep = ep;
+      errno = 0;
+      if (ep && *ep == '.' && ep[1] == '.' && ep[2])
+	incr = strtoimax (ep + 2, &ep, 10);
+      if (*ep != 0 || errno == ERANGE)
+	rhs_t = ST_BAD;			/* invalid incr or overflow */
+      tlen -= ep - oep;
+    }
 
   if (lhs_t != rhs_t || lhs_t == ST_BAD || rhs_t == ST_BAD)
     {
@@ -394,14 +549,32 @@ expand_seqterm (text, tlen)
     {
       lhs_v = (unsigned char)lhs[0];
       rhs_v = (unsigned char)rhs[0];
+      width = 1;
     }
   else
     {
       lhs_v = tl;		/* integer truncation */
       rhs_v = tr;
+
+      /* Decide whether or not the terms need zero-padding */
+      rhs_l = tlen - lhs_l - sizeof (BRACE_SEQ_SPECIFIER) + 1;
+      width = 0;
+      if (lhs_l > 1 && lhs[0] == '0')
+	width = lhs_l, lhs_t = ST_ZINT;
+      if (lhs_l > 2 && lhs[0] == '-' && lhs[1] == '0')
+	width = lhs_l, lhs_t = ST_ZINT;
+      if (rhs_l > 1 && rhs[0] == '0' && width < rhs_l)
+	width = rhs_l, lhs_t = ST_ZINT;
+      if (rhs_l > 2 && rhs[0] == '-' && rhs[1] == '0' && width < rhs_l)
+	width = rhs_l, lhs_t = ST_ZINT;
+
+      if (width < lhs_l && lhs_t == ST_ZINT)
+        width = lhs_l;
+      if (width < rhs_l && lhs_t == ST_ZINT)
+        width = rhs_l;
     }
 
-  result = mkseq (lhs_v, rhs_v, 1, lhs_t);
+  result = mkseq (lhs_v, rhs_v, incr, lhs_t, width);
 
   free (lhs);
   free (rhs);
@@ -474,6 +647,11 @@ brace_gobbler (text, tlen, indx, satisfy)
 	{
 	  if (c == quoted)
 	    quoted = 0;
+#if defined (SHELL)
+	  /* The shell allows quoted command substitutions */
+	  if (quoted == '"' && c == '$' && text[i+1] == '(')	/*)*/
+	    goto comsub;
+#endif
 	  ADVANCE_CHAR (text, tlen, i);
 	  continue;
 	}
@@ -486,11 +664,12 @@ brace_gobbler (text, tlen, indx, satisfy)
 	}
 
 #if defined (SHELL)
-      /* Pass new-style command substitutions through unchanged. */
-      if (c == '$' && text[i+1] == '(')			/* ) */
+      /* Pass new-style command and process substitutions through unchanged. */
+      if ((c == '$' || c == '<' || c == '>') && text[i+1] == '(')			/* ) */
 	{
+comsub:
 	  si = i + 2;
-	  t = extract_command_subst (text, &si);
+	  t = extract_command_subst (text, &si, 0);
 	  i = si;
 	  free (t);
 	  i++;
@@ -533,6 +712,20 @@ brace_gobbler (text, tlen, indx, satisfy)
   return (c);
 }
 
+/* Return 1 if ARR has any non-empty-string members.  Used to short-circuit
+   in array_concat() below. */
+static int
+degenerate_array (arr)
+     char **arr;
+{
+  register int i;
+
+  for (i = 0; arr[i]; i++)
+    if (arr[i][0] != '\0')
+      return 0;
+  return 1;
+}
+
 /* Return a new array of strings which is the result of appending each
    string in ARR2 to each string in ARR1.  The resultant array is
    len (arr1) * len (arr2) long.  For convenience, ARR1 (and its contents)
@@ -546,10 +739,22 @@ array_concat (arr1, arr2)
   register char **result;
 
   if (arr1 == 0)
-    return (strvec_copy (arr2));
+    return (arr2);		/* XXX - see if we can get away without copying? */
 
   if (arr2 == 0)
-    return (strvec_copy (arr1));
+    return (arr1);		/* XXX - caller expects us to free arr1 */
+
+  /* We can only short-circuit if the array consists of a single null element;
+     otherwise we need to replicate the contents of the other array and
+     prefix (or append, below) an empty element to each one. */
+  if (arr1[0] && arr1[0][0] == 0 && arr1[1] == 0)
+    {
+      strvec_dispose (arr1);
+      return (arr2);		/* XXX - use flags to see if we can avoid copying here */
+    }
+
+  if (arr2[0] && arr2[0][0] == 0 && arr2[1] == 0)
+    return (arr1);		/* XXX - rather than copying and freeing it */
 
   len1 = strvec_len (arr1);
   len2 = strvec_len (arr2);

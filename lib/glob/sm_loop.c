@@ -1,27 +1,29 @@
-/* Copyright (C) 1991-2006 Free Software Foundation, Inc.
+/* Copyright (C) 1991-2011 Free Software Foundation, Inc.
 
    This file is part of GNU Bash, the Bourne Again SHell.
    
-   Bash is free software; you can redistribute it and/or modify it under
-   the terms of the GNU General Public License as published by the Free
-   Software Foundation; either version 2, or (at your option) any later
-   version.
-	      
-   Bash is distributed in the hope that it will be useful, but WITHOUT ANY
-   WARRANTY; without even the implied warranty of MERCHANTABILITY or
-   FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   for more details.
-			 
-   You should have received a copy of the GNU General Public License along
-   with Bash; see the file COPYING.  If not, write to the Free Software
-   Foundation, 59 Temple Place, Suite 330, Boston, MA 02111 USA. */
+   Bash is free software: you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation, either version 3 of the License, or
+   (at your option) any later version.
+
+   Bash is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with Bash.  If not, see <http://www.gnu.org/licenses/>.
+*/
+
 int FCT __P((CHAR *, CHAR *, int));
 
 static int GMATCH __P((CHAR *, CHAR *, CHAR *, CHAR *, int));
 static CHAR *PARSE_COLLSYM __P((CHAR *, INT *));
 static CHAR *BRACKMATCH __P((CHAR *, U_CHAR, int));
 static int EXTMATCH __P((INT, CHAR *, CHAR *, CHAR *, CHAR *, int));
-static CHAR *PATSCAN __P((CHAR *, CHAR *, INT));
+
+/*static*/ CHAR *PATSCAN __P((CHAR *, CHAR *, INT));
 
 int
 FCT (pattern, string, flags)
@@ -143,8 +145,9 @@ fprintf(stderr, "gmatch: pattern = %s; pe = %s\n", pattern, pe);
 		      if (EXTMATCH (c, newn, se, p, pe, flags) == 0)
 			return (0);
 		    }
-		  /* We didn't match.  If we have a `?(...)', that's failure. */
-		  return FNM_NOMATCH;
+		  /* We didn't match.  If we have a `?(...)', we can match 0
+		     or 1 times. */
+		  return 0;
 		}
 #endif
 	      else if (c == L('?'))
@@ -189,6 +192,18 @@ fprintf(stderr, "gmatch: pattern = %s; pe = %s\n", pattern, pe);
 	     Otherwise, we need to match that last character. */
 	  if (p == pe && (c == L('?') || c == L('*')))
 	    return (0);
+
+	  /* If we've hit the end of the string and the rest of the pattern
+	     is something that matches the empty string, we can succeed. */
+#if defined (EXTENDED_GLOB)
+	  if (n == se && ((flags & FNM_EXTMATCH) && (c == L('!') || c == L('?')) && *p == L('(')))
+	    {
+	      --p;
+	      if (EXTMATCH (c, n, se, p, pe, flags) == 0)
+		return (c == L('!') ? FNM_NOMATCH : 0);
+	      return (c == L('!') ? 0 : FNM_NOMATCH);
+	    }
+#endif
 
 	  /* General case, use recursion. */
 	  {
@@ -289,7 +304,7 @@ BRACKMATCH (p, test, flags)
 {
   register CHAR cstart, cend, c;
   register int not;    /* Nonzero if the sense of the character class is inverted.  */
-  int brcnt;
+  int brcnt, forcecoll;
   INT pc;
   CHAR *savep;
 
@@ -310,6 +325,7 @@ BRACKMATCH (p, test, flags)
       /* Initialize cstart and cend in case `-' is the last
 	 character of the pattern. */
       cstart = cend = c;
+      forcecoll = 0;
 
       /* POSIX.2 equivalence class:  [=c=].  See POSIX.2 2.8.3.2.  Find
 	 the end of the equivalence class, move the pattern pointer past
@@ -399,6 +415,7 @@ BRACKMATCH (p, test, flags)
 	     range.  If it is, we set cstart to one greater than `test',
 	     so any comparisons later will fail. */
 	  cstart = (pc == INVALID) ? test + 1 : pc;
+	  forcecoll = 1;
 	}
 
       if (!(flags & FNM_NOESCAPE) && c == L('\\'))
@@ -442,6 +459,7 @@ BRACKMATCH (p, test, flags)
 		 range expression.  If we get one, we set cend to one fewer
 		 than the test character to make sure the range test fails. */
 	      cend = (pc == INVALID) ? test - 1 : pc;
+	      forcecoll = 1;
 	    }
 	  cend = FOLD (cend);
 
@@ -452,7 +470,7 @@ BRACKMATCH (p, test, flags)
 	     the expression shall be treated as invalid.''  Note that this
 	     applies to only the range expression; the rest of the bracket
 	     expression is still checked for matches. */
-	  if (RANGECMP (cstart, cend) > 0)
+	  if (RANGECMP (cstart, cend, forcecoll) > 0)
 	    {
 	      if (c == L(']'))
 		break;
@@ -461,7 +479,7 @@ BRACKMATCH (p, test, flags)
 	    }
 	}
 
-      if (RANGECMP (test, cstart) >= 0 && RANGECMP (test, cend) <= 0)
+      if (RANGECMP (test, cstart, forcecoll) >= 0 && RANGECMP (test, cend, forcecoll) <= 0)
 	goto matched;
 
       if (c == L(']'))
@@ -516,7 +534,7 @@ matched:
    because we're scanning a `patlist'.  Otherwise, we scan until we see
    DELIM.  In all cases, we never scan past END.  The return value is the
    first character after the matching DELIM. */
-static CHAR *
+/*static*/ CHAR *
 PATSCAN (string, end, delim)
      CHAR *string, *end;
      INT delim;
@@ -528,6 +546,9 @@ PATSCAN (string, end, delim)
   pnest = bnest = skip = 0;
   cchar = 0;
   bfirst = NULL;
+
+  if (string == end)
+    return (NULL);
 
   for (s = string; c = *s; s++)
     {
@@ -605,19 +626,32 @@ STRCOMPARE (p, pe, s, se)
 {
   int ret;
   CHAR c1, c2;
+  int l1, l2;
 
+  l1 = pe - p;
+  l2 = se - s;
+
+  if (l1 != l2)
+    return (FNM_NOMATCH);	/* unequal lengths, can't be identical */
+  
   c1 = *pe;
   c2 = *se;
 
-  *pe = *se = '\0';
+  if (c1 != 0)
+    *pe = '\0';
+  if (c2 != 0)
+    *se = '\0';
+    
 #if HAVE_MULTIBYTE || defined (HAVE_STRCOLL)
   ret = STRCOLL ((XCHAR *)p, (XCHAR *)s);
 #else
   ret = STRCMP ((XCHAR *)p, (XCHAR *)s);
 #endif
 
-  *pe = c1;
-  *se = c2;
+  if (c1 != 0)
+    *pe = c1;
+  if (c2 != 0)
+    *se = c2;
 
   return (ret == 0 ? ret : FNM_NOMATCH);
 }

@@ -1,23 +1,24 @@
 /* shell.c -- GNU's idea of the POSIX shell specification. */
 
-/* Copyright (C) 1987-2005 Free Software Foundation, Inc.
+/* Copyright (C) 1987-2012 Free Software Foundation, Inc.
 
    This file is part of GNU Bash, the Bourne Again SHell.
 
-   Bash is free software; you can redistribute it and/or modify it
-   under the terms of the GNU General Public License as published by
-   the Free Software Foundation; either version 2, or (at your option)
-   any later version.
+   Bash is free software: you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation, either version 3 of the License, or
+   (at your option) any later version.
 
-   Bash is distributed in the hope that it will be useful, but WITHOUT
-   ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-   or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
-   License for more details.
+   Bash is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
 
    You should have received a copy of the GNU General Public License
-   along with Bash; see the file COPYING.  If not, write to the Free
-   Software Foundation, 59 Temple Place, Suite 330, Boston, MA 02111 USA.
+   along with Bash.  If not, see <http://www.gnu.org/licenses/>.
+*/
 
+/*
   Birthdate:
   Sunday, January 10th, 1988.
   Initial author: Brian Fox
@@ -69,6 +70,10 @@
 #if defined (HISTORY)
 #  include "bashhist.h"
 #  include <readline/history.h>
+#endif
+
+#if defined (READLINE)
+#  include "bashline.h"
 #endif
 
 #include <tilde/tilde.h>
@@ -139,6 +144,12 @@ int interactive_shell = 0;
    shell exits. */
 int hup_on_exit = 0;
 
+/* Non-zero means to list status of running and stopped jobs at shell exit */
+int check_jobs_at_exit = 0;
+
+/* Non-zero means to change to a directory name supplied as a command name */
+int autocd = 0;
+
 /* Tells what state the shell was in when it started:
 	0 = non-interactive shell script
 	1 = interactive
@@ -172,6 +183,13 @@ time_t shell_start_time;
 /* Are we running in an emacs shell window? */
 int running_under_emacs;
 
+/* Do we have /dev/fd? */
+#ifdef HAVE_DEV_FD
+int have_devfd = HAVE_DEV_FD;
+#else
+int have_devfd = 0;
+#endif
+
 /* The name of the .(shell)rc file. */
 static char *bashrc_file = "~/.bashrc";
 
@@ -196,7 +214,11 @@ static int make_login_shell;		/* Make this shell be a `-bash' shell. */
 static int want_initial_help;		/* --help option */
 
 int debugging_mode = 0;		/* In debugging mode with --debugger */
-int no_line_editing = 0;	/* Don't do fancy line editing. */
+#if defined (READLINE)
+int no_line_editing = 0;	/* non-zero -> don't do fancy line editing. */
+#else
+int no_line_editing = 1;	/* can't have line editing without readline */
+#endif
 int dump_translatable_strings;	/* Dump strings in $"...", don't execute. */
 int dump_po_strings;		/* Dump strings in $"..." in po format */
 int wordexp_only = 0;		/* Do word expansion only */
@@ -208,12 +230,11 @@ int posixly_correct = 1;	/* Non-zero means posix.2 superset. */
 int posixly_correct = 0;	/* Non-zero means posix.2 superset. */
 #endif
 
-
 /* Some long-winded argument names.  These are obviously new. */
 #define Int 1
 #define Charp 2
-struct {
-  char *name;
+static const struct {
+  const char *name;
   int type;
   int *int_value;
   char **char_value;
@@ -231,14 +252,18 @@ struct {
   { "noprofile", Int, &no_profile, (char **)0x0 },
   { "norc", Int, &no_rc, (char **)0x0 },
   { "posix", Int, &posixly_correct, (char **)0x0 },
+#if defined (WORDEXP_OPTION)
   { "protected", Int, &protected_mode, (char **)0x0 },
+#endif
   { "rcfile", Charp, (int *)0x0, &bashrc_file },
 #if defined (RESTRICTED_SHELL)
   { "restricted", Int, &restricted, (char **)0x0 },
 #endif
   { "verbose", Int, &echo_input_at_read, (char **)0x0 },
   { "version", Int, &do_version, (char **)0x0 },
+#if defined (WORDEXP_OPTION)
   { "wordexp", Int, &wordexp_only, (char **)0x0 },
+#endif
   { (char *)0x0, Int, (int *)0x0, (char **)0x0 }
 };
 
@@ -250,6 +275,8 @@ procenv_t subshell_top_level;
 int subshell_argc;
 char **subshell_argv;
 char **subshell_envp;
+
+char *exec_argv0;
 
 #if defined (BUFFERED_INPUT)
 /* The file descriptor from which the shell is reading input. */
@@ -286,12 +313,15 @@ static void run_startup_files __P((void));
 static int open_shell_script __P((char *));
 static void set_bash_input __P((void));
 static int run_one_command __P((char *));
+#if defined (WORDEXP_OPTION)
 static int run_wordexp __P((char *));
+#endif
 
 static int uidget __P((void));
 
 static void init_interactive __P((void));
 static void init_noninteractive __P((void));
+static void init_interactive_script __P((void));
 
 static void set_shell_name __P((char *));
 static void shell_initialize __P((void));
@@ -351,9 +381,11 @@ main (argc, argv, env)
 #endif
 
   /* Catch early SIGINTs. */
-  code = setjmp (top_level);
+  code = setjmp_nosigs (top_level);
   if (code)
     exit (2);
+
+  xtrace_init ();
 
 #if defined (USING_BASH_MALLOC) && defined (DEBUG) && !defined (DISABLE_MALLOC_WRAPPERS)
 #  if 1
@@ -415,7 +447,7 @@ main (argc, argv, env)
 	shell_name++;
 
       shell_reinitialize ();
-      if (setjmp (top_level))
+      if (setjmp_nosigs (top_level))
 	exit (2);
     }
 
@@ -452,7 +484,7 @@ main (argc, argv, env)
       login_shell = -login_shell;
     }
 
-  set_login_shell (login_shell != 0);
+  set_login_shell ("login_shell", login_shell != 0);
 
   if (dump_po_strings)
     dump_translatable_strings = 1;
@@ -500,21 +532,20 @@ main (argc, argv, env)
   else
     init_noninteractive ();
 
-#define CLOSE_FDS_AT_LOGIN
-#if defined (CLOSE_FDS_AT_LOGIN)
   /*
    * Some systems have the bad habit of starting login shells with lots of open
    * file descriptors.  For instance, most systems that have picked up the
    * pre-4.0 Sun YP code leave a file descriptor open each time you call one
    * of the getpw* functions, and it's set to be open across execs.  That
-   * means one for login, one for xterm, one for shelltool, etc.
+   * means one for login, one for xterm, one for shelltool, etc.  There are
+   * also systems that open persistent FDs to other agents or files as part
+   * of process startup; these need to be set to be close-on-exec.
    */
   if (login_shell && interactive_shell)
     {
       for (i = 3; i < 20; i++)
-	close (i);
+	SET_CLOSE_ON_EXEC (i);
     }
-#endif /* CLOSE_FDS_AT_LOGIN */
 
   /* If we're in a strict Posix.2 mode, turn on interactive comments,
      alias expansion in non-interactive shells, and other Posix.2 things. */
@@ -535,19 +566,26 @@ main (argc, argv, env)
   set_default_lang ();
   set_default_locale_vars ();
 
+  /*
+   * M-x term -> TERM=eterm EMACS=22.1 (term:0.96)	(eterm)
+   * M-x shell -> TERM=dumb EMACS=t			(no line editing)
+   * M-x terminal -> TERM=emacs-em7955 EMACS=		(line editing)
+   */
   if (interactive_shell)
     {
       char *term, *emacs;
 
       term = get_string_value ("TERM");
-      no_line_editing |= term && (STREQ (term, "emacs"));
       emacs = get_string_value ("EMACS");
-      running_under_emacs = emacs ? ((strstr (emacs, "term") != 0) ? 2 : 1) : 0;
-#if 0
-      no_line_editing |= emacs && emacs[0] == 't' && emacs[1] == '\0';
-#else
+
+      /* Not sure any emacs terminal emulator sets TERM=emacs any more */
+      no_line_editing |= term && (STREQ (term, "emacs"));
       no_line_editing |= emacs && emacs[0] == 't' && emacs[1] == '\0' && STREQ (term, "dumb");
-#endif
+
+      /* running_under_emacs == 2 for `eterm' */
+      running_under_emacs = (emacs != 0) || (term && STREQN (term, "emacs", 5));
+      running_under_emacs += term && STREQN (term, "eterm", 5) && emacs && strstr (emacs, "term");
+
       if (running_under_emacs)
 	gnu_error_format = 1;
     }
@@ -634,12 +672,14 @@ main (argc, argv, env)
     maybe_make_restricted (shell_name);
 #endif /* RESTRICTED_SHELL */
 
+#if defined (WORDEXP_OPTION)
   if (wordexp_only)
     {
       startup_state = 3;
       last_command_exit_value = run_wordexp (argv[arg_index]);
       exit_shell (last_command_exit_value);
     }
+#endif
 
   if (command_execution_string)
     {
@@ -680,15 +720,15 @@ main (argc, argv, env)
   /* Bind remaining args to $1 ... $n */
   arg_index = bind_args (argv, arg_index, argc, 1);
 
-  if (debugging_mode && locally_skip_execution == 0 && running_setuid == 0)
+  if (debugging_mode && locally_skip_execution == 0 && running_setuid == 0 && dollar_vars[1])
     start_debugger ();
 
   /* Do the things that should be done only for interactive shells. */
   if (interactive_shell)
     {
       /* Set up for checking for presence of mail. */
-      remember_mail_dates ();
       reset_mail_timer ();
+      init_mail_dates ();
 
 #if defined (HISTORY)
       /* Initialize the interactive history stuff. */
@@ -866,6 +906,9 @@ void
 exit_shell (s)
      int s;
 {
+  fflush (stdout);		/* XXX */
+  fflush (stderr);
+
   /* Do trap[0] if defined.  Allow it to override the exit status
      passed to us. */
   if (signal_is_trapped (0))
@@ -876,9 +919,13 @@ exit_shell (s)
 #endif /* PROCESS_SUBSTITUTION */
 
 #if defined (HISTORY)
-  if (interactive_shell)
+  if (remember_on_history)
     maybe_save_shell_history ();
 #endif /* HISTORY */
+
+#if defined (COPROCESS_SUPPORT)
+  coproc_flush ();
+#endif
 
 #if defined (JOB_CONTROL)
   /* If the user has run `shopt -s huponexit', hangup all jobs when we exit
@@ -910,6 +957,24 @@ sh_exit (s)
 #endif
 
   exit (s);
+}
+
+/* Exit a subshell, which includes calling the exit trap.  We don't want to
+   do any more cleanup, since a subshell is created as an exact copy of its
+   parent. */
+void
+subshell_exit (s)
+     int s;
+{
+  fflush (stdout);
+  fflush (stderr);
+
+  /* Do trap[0] if defined.  Allow it to override the exit status
+     passed to us. */
+  if (signal_is_trapped (0))
+    s = run_exit_trap ();
+
+  sh_exit (s);
 }
 
 /* Source the bash startup files.  If POSIXLY_CORRECT is non-zero, we obey
@@ -1167,6 +1232,7 @@ disable_priv_mode ()
   current_user.egid = current_user.gid;
 }
 
+#if defined (WORDEXP_OPTION)
 static int
 run_wordexp (words)
      char *words;
@@ -1174,13 +1240,13 @@ run_wordexp (words)
   int code, nw, nb;
   WORD_LIST *wl, *tl, *result;
 
-  code = setjmp (top_level);
+  code = setjmp_nosigs (top_level);
 
   if (code != NOT_JUMPED)
     {
       switch (code)
 	{
-	  /* Some kind of throw to top_level has occured. */
+	  /* Some kind of throw to top_level has occurred. */
 	case FORCE_EOF:
 	  return last_command_exit_value = 127;
 	case ERREXIT:
@@ -1238,6 +1304,7 @@ run_wordexp (words)
 
   return (0);
 }
+#endif
 
 #if defined (ONESHOT)
 /* Run one command, given as the argument to the -c option.  Tell
@@ -1248,7 +1315,7 @@ run_one_command (command)
 {
   int code;
 
-  code = setjmp (top_level);
+  code = setjmp_nosigs (top_level);
 
   if (code != NOT_JUMPED)
     {
@@ -1257,7 +1324,7 @@ run_one_command (command)
 #endif /* PROCESS_SUBSTITUTION */
       switch (code)
 	{
-	  /* Some kind of throw to top_level has occured. */
+	  /* Some kind of throw to top_level has occurred. */
 	case FORCE_EOF:
 	  return last_command_exit_value = 127;
 	case ERREXIT:
@@ -1372,7 +1439,12 @@ open_shell_script (script_name)
     }
 
   free (dollar_vars[0]);
-  dollar_vars[0] = savestring (script_name);
+  dollar_vars[0] = exec_argv0 ? savestring (exec_argv0) : savestring (script_name);
+  if (exec_argv0)
+    {
+      free (exec_argv0);
+      exec_argv0 = (char *)NULL;
+    }
 
 #if defined (ARRAY_VARS)
   GET_ARRAY_FROM_VAR ("FUNCNAME", funcname_v, funcname_a);
@@ -1416,7 +1488,7 @@ open_shell_script (script_name)
 	}
       else if (sample_len > 0 && (check_binary_file (sample, sample_len)))
 	{
-	  internal_error ("%s: cannot execute binary file", filename);
+	  internal_error (_("%s: cannot execute binary file"), filename);
 	  exit (EX_BINARY_FILE);
 	}
       /* Now rewind the file back to the beginning. */
@@ -1426,11 +1498,7 @@ open_shell_script (script_name)
   /* Open the script.  But try to move the file descriptor to a randomly
      large one, in the hopes that any descriptors used by the script will
      not match with ours. */
-  fd = move_to_high_fd (fd, 0, -1);
-
-#if defined (__CYGWIN__) && defined (O_TEXT)
-  setmode (fd, O_TEXT);
-#endif
+  fd = move_to_high_fd (fd, 1, -1);
 
 #if defined (BUFFERED_INPUT)
   default_buffered_input = fd;
@@ -1467,7 +1535,7 @@ open_shell_script (script_name)
     /* But if a script is called with something like `bash -i scriptname',
        we need to do a non-interactive setup here, since we didn't do it
        before. */
-    init_noninteractive ();
+    init_interactive_script ();
 
   free (filename);
   return (fd);
@@ -1511,6 +1579,7 @@ unset_bash_input (check_zero)
     {
       close_buffered_fd (default_buffered_input);
       default_buffered_input = bash_input.location.buffered_fd = -1;
+      bash_input.type = st_none;		/* XXX */
     }
 #else /* !BUFFERED_INPUT */
   if (default_input)
@@ -1538,7 +1607,7 @@ set_shell_name (argv0)
     {
       if (*shell_name == '-')
 	shell_name++;
-      login_shell++;
+      login_shell = 1;
     }
 
   if (shell_name[0] == 's' && shell_name[1] == 'h' && shell_name[2] == '\0')
@@ -1560,8 +1629,8 @@ set_shell_name (argv0)
 static void
 init_interactive ()
 {
-  interactive_shell = startup_state = interactive = 1;
-  expand_aliases = 1;
+  expand_aliases = interactive_shell = startup_state = 1;
+  interactive = 1;
 }
 
 static void
@@ -1574,8 +1643,17 @@ init_noninteractive ()
   expand_aliases = posixly_correct;	/* XXX - was 0 not posixly_correct */
   no_line_editing = 1;
 #if defined (JOB_CONTROL)
-  set_job_control (0);
+  /* Even if the shell is not interactive, enable job control if the -i or
+     -m option is supplied at startup. */
+  set_job_control (forced_interactive||jobs_m_flag);
 #endif /* JOB_CONTROL */
+}
+
+static void
+init_interactive_script ()
+{
+  init_noninteractive ();
+  expand_aliases = interactive_shell = startup_state = 1;
 }
 
 void
@@ -1586,7 +1664,11 @@ get_current_user_info ()
   /* Don't fetch this more than once. */
   if (current_user.user_name == 0)
     {
+#if defined (__TANDEM)
+      entry = getpwnam (getlogin ());
+#else
       entry = getpwuid (current_user.uid);
+#endif
       if (entry)
 	{
 	  current_user.user_name = savestring (entry->pw_name);
@@ -1660,7 +1742,7 @@ shell_initialize ()
 #endif
 
   /* Initialize the data structures for storing and running jobs. */
-  initialize_job_control (0);
+  initialize_job_control (jobs_m_flag);
 
   /* Initialize input streams to null. */
   initialize_bash_input ();
@@ -1668,12 +1750,15 @@ shell_initialize ()
   initialize_flags ();
 
   /* Initialize the shell options.  Don't import the shell options
-     from the environment variable $SHELLOPTS if we are running in
-     privileged or restricted mode or if the shell is running setuid. */
+     from the environment variables $SHELLOPTS or $BASHOPTS if we are
+     running in privileged or restricted mode or if the shell is running
+     setuid. */
 #if defined (RESTRICTED_SHELL)
   initialize_shell_options (privileged_mode||restricted||running_setuid);
+  initialize_bashopts (privileged_mode||restricted||running_setuid);
 #else
   initialize_shell_options (privileged_mode||running_setuid);
+  initialize_bashopts (privileged_mode||running_setuid);
 #endif
 }
 
@@ -1702,6 +1787,8 @@ shell_reinitialize ()
   forced_interactive = interactive_shell = subshell_environment = 0;
   expand_aliases = 0;
 
+  /* XXX - should we set jobs_m_flag to 0 here? */
+
 #if defined (HISTORY)
   bash_history_reinit (0);
 #endif /* HISTORY */
@@ -1719,6 +1806,12 @@ shell_reinitialize ()
   delete_all_contexts (shell_variables);
   delete_all_variables (shell_functions);
 
+  reinit_special_variables ();
+
+#if defined (READLINE)
+  bashline_reinitialize ();
+#endif
+
   shell_reinitialized = 1;
 }
 
@@ -1731,7 +1824,7 @@ show_shell_usage (fp, extra)
   char *set_opts, *s, *t;
 
   if (extra)
-    fprintf (fp, "GNU bash, version %s-(%s)\n", shell_version_string (), MACHTYPE);
+    fprintf (fp, _("GNU bash, version %s-(%s)\n"), shell_version_string (), MACHTYPE);
   fprintf (fp, _("Usage:\t%s [GNU long option] [option] ...\n\t%s [GNU long option] [option] script-file ...\n"),
 	     shell_name, shell_name);
   fputs (_("GNU long options:\n"), fp);
@@ -1739,19 +1832,19 @@ show_shell_usage (fp, extra)
     fprintf (fp, "\t--%s\n", long_args[i].name);
 
   fputs (_("Shell options:\n"), fp);
-  fputs (_("\t-irsD or -c command or -O shopt_option\t\t(invocation only)\n"), fp);
+  fputs (_("\t-ilrsD or -c command or -O shopt_option\t\t(invocation only)\n"), fp);
 
   for (i = 0, set_opts = 0; shell_builtins[i].name; i++)
     if (STREQ (shell_builtins[i].name, "set"))
       set_opts = savestring (shell_builtins[i].short_doc);
   if (set_opts)
     {
-      s = xstrchr (set_opts, '[');
+      s = strchr (set_opts, '[');
       if (s == 0)
 	s = set_opts;
       while (*++s == '-')
 	;
-      t = xstrchr (s, ']');
+      t = strchr (s, ']');
       if (t)
 	*t = '\0';
       fprintf (fp, _("\t-%s or -o option\n"), s);

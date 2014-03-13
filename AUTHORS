@@ -125,6 +125,7 @@ builtins/let.def	Chet Ramey, Brian Fox
 builtins/history.def	Brian Fox, Chet Ramey
 builtins/jobs.def	Brian Fox, Chet Ramey
 builtins/kill.def	Brian Fox, Chet Ramey
+builtins/mapfile.def	Rocky Bernstein
 builtins/mkbuiltins.c	Brian Fox, Chet Ramey
 builtins/pushd.def	Brian Fox, Chet Ramey
 builtins/read.def	Brian Fox, Chet Ramey
@@ -333,6 +334,7 @@ examples/functions/manpage	Tom Tromey
 examples/functions/fstty	Chet Ramey
 examples/functions/jj.bash	Chet Ramey
 examples/functions/notify.bash	Chet Ramey
+examples/loadables/getconf.c	J.T. Conklin
 examples/scripts/shprompt	Chet Ramey
 examples/scripts/adventure.sh	Chet Ramey, Doug Gwyn
 examples/scripts/bcsh.sh	Chris Robertson, Chet Ramey
@@ -388,6 +390,7 @@ tests/strip.tests       Chet Ramey
 tests/strip.right       Chet Ramey
 tests/tilde-tests       Chet Ramey
 tests/tilde.right       Chet Ramey
+tests/unicode1.sub	Chet Ramey, John Kearney
 tests/varenv.right      Chet Ramey
 tests/varenv.sh 	Chet Ramey
 tests/misc/chld-trap.sh Chet Ramey
@@ -456,3 +459,8 @@ lib/sh/zread.c		Chet Ramey
 lib/sh/zwrite.c		Chet Ramey
 
 tests/posix-ifs.sh	Glenn Fowler
+
+support/checkbashisms	Julian Gilbey, Debian Linux team
+
+lib/readline/colors.c	Richard Stallman, David MacKenzie
+lib/readline/parse-colors.c Richard Stallman, David MacKenzie

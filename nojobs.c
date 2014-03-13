@@ -1,25 +1,25 @@
-/* The thing that makes children, remembers them, and contains wait loops. */
+/* nojobs.c - functions that make children, remember them, and handle their termination. */
 
 /* This file works under BSD, System V, minix, and Posix systems.  It does
    not implement job control. */
 
-/* Copyright (C) 1987-2006 Free Software Foundation, Inc.
+/* Copyright (C) 1987-2011 Free Software Foundation, Inc.
 
    This file is part of GNU Bash, the Bourne Again SHell.
 
-   Bash is free software; you can redistribute it and/or modify it under
-   the terms of the GNU General Public License as published by the Free
-   Software Foundation; either version 2, or (at your option) any later
-   version.
+   Bash is free software: you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation, either version 3 of the License, or
+   (at your option) any later version.
 
-   Bash is distributed in the hope that it will be useful, but WITHOUT ANY
-   WARRANTY; without even the implied warranty of MERCHANTABILITY or
-   FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   for more details.
+   Bash is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
 
-   You should have received a copy of the GNU General Public License along
-   with Bash; see the file COPYING.  If not, write to the Free Software
-   Foundation, 59 Temple Place, Suite 330, Boston, MA 02111 USA. */
+   You should have received a copy of the GNU General Public License
+   along with Bash.  If not, see <http://www.gnu.org/licenses/>.
+*/
 
 #include "config.h"
 
@@ -45,6 +45,7 @@
 
 #include "shell.h"
 #include "jobs.h"
+#include "execute_cmd.h"
 
 #include "builtins/builtext.h"	/* for wait_builtin */
 
@@ -82,8 +83,8 @@ extern sigset_t top_level_mask;
 extern procenv_t wait_intr_buf;
 extern int wait_signal_received;
 
-pid_t last_made_pid = NO_PID;
-pid_t last_asynchronous_pid = NO_PID;
+volatile pid_t last_made_pid = NO_PID;
+volatile pid_t last_asynchronous_pid = NO_PID;
 
 /* Call this when you start making children. */
 int already_making_children = 0;
@@ -93,7 +94,10 @@ int shell_tty = -1;
 
 /* If this is non-zero, $LINES and $COLUMNS are reset after every process
    exits from get_tty_state(). */
-int check_window_size;
+int check_window_size = CHECKWINSIZE_DEFAULT;
+
+/* We don't have job control. */
+int job_control = 0;
 
 /* STATUS and FLAGS are only valid if pid != NO_PID
    STATUS is only valid if (flags & PROC_RUNNING) == 0 */
@@ -232,7 +236,7 @@ find_termsig_by_pid (pid)
     return (0);
   if (pid_list[i].flags & PROC_RUNNING)
     return (0);
-  return (get_termsig (pid_list[i].status));
+  return (get_termsig ((WAIT)pid_list[i].status));
 }
 
 /* Set LAST_COMMAND_EXIT_SIGNAL depending on STATUS.  If STATUS is -1, look
@@ -255,6 +259,10 @@ set_pid_status (pid, status)
      WAIT status;
 {
   int slot;
+
+#if defined (COPROCESS_SUPPORT)
+  coproc_pidchk (pid, status);
+#endif
 
   slot = find_index_by_pid (pid);
   if (slot == NO_PID)
@@ -387,6 +395,10 @@ cleanup_dead_jobs ()
 	pid_list[i].pid = NO_PID;
     }
 
+#if defined (COPROCESS_SUPPORT)
+  coproc_reap ();
+#endif
+
   return 0;
 }
 
@@ -430,14 +442,21 @@ reap_zombie_children ()
   WAIT status;
 
   CHECK_TERMSIG;
+  CHECK_WAIT_INTR;
   while ((pid = waitpid (-1, (int *)&status, WNOHANG)) > 0)
     set_pid_status (pid, status);
 #  endif /* WNOHANG */
   CHECK_TERMSIG;
+  CHECK_WAIT_INTR;
 }
 #endif /* WAITPID */
 
 #if !defined (HAVE_SIGINTERRUPT) && defined (HAVE_POSIX_SIGNALS)
+
+#if !defined (SA_RESTART)
+#  define SA_RESTART 0
+#endif
+
 static int
 siginterrupt (sig, flag)
      int sig, flag;
@@ -465,9 +484,7 @@ make_child (command, async_p)
      int async_p;
 {
   pid_t pid;
-#if defined (HAVE_WAITPID)
-  int retry = 1;
-#endif /* HAVE_WAITPID */
+  int forksleep;
 
   /* Discard saved memory. */
   if (command)
@@ -484,26 +501,37 @@ make_child (command, async_p)
     sync_buffered_stream (default_buffered_input);
 #endif /* BUFFERED_INPUT */
 
-  /* Create the child, handle severe errors. */
-#if defined (HAVE_WAITPID)
-  retry_fork:
-#endif /* HAVE_WAITPID */
+  /* XXX - block SIGTERM here and unblock in child after fork resets the
+     set of pending signals? */
+  RESET_SIGTERM;
 
-  if ((pid = fork ()) < 0)
+  /* Create the child, handle severe errors.  Retry on EAGAIN. */
+  forksleep = 1;
+  while ((pid = fork ()) < 0 && errno == EAGAIN && forksleep < FORKSLEEP_MAX)
     {
+      sys_error ("fork: retry");
+      RESET_SIGTERM;
+
 #if defined (HAVE_WAITPID)
       /* Posix systems with a non-blocking waitpid () system call available
 	 get another chance after zombies are reaped. */
-      if (errno == EAGAIN && retry)
-	{
-	  reap_zombie_children ();
-	  retry = 0;
-	  goto retry_fork;
-	}
+      reap_zombie_children ();
+      if (forksleep > 1 && sleep (forksleep) != 0)
+        break;
+#else
+      if (sleep (forksleep) != 0)
+	break;
 #endif /* HAVE_WAITPID */
+      forksleep <<= 1;
+    }
 
+  if (pid != 0)
+    RESET_SIGTERM;
+
+  if (pid < 0)
+    {
       sys_error ("fork");
-
+      last_command_exit_value = EX_NOEXEC;
       throw_to_top_level ();
     }
 
@@ -518,9 +546,11 @@ make_child (command, async_p)
       sigprocmask (SIG_SETMASK, &top_level_mask, (sigset_t *)NULL);
 #endif
 
+#if 0
       /* Ignore INT and QUIT in asynchronous children. */
       if (async_p)
 	last_asynchronous_pid = getpid ();
+#endif
 
       default_tty_job_signals ();
     }
@@ -587,6 +617,7 @@ wait_for_single_pid (pid)
   while ((got_pid = WAITPID (pid, &status, 0)) != pid)
     {
       CHECK_TERMSIG;
+      CHECK_WAIT_INTR;
       if (got_pid < 0)
 	{
 	  if (errno != EINTR && errno != ECHILD)
@@ -673,12 +704,12 @@ wait_sigint_handler (sig)
       signal_is_trapped (SIGINT) &&
       ((sigint_handler = trap_to_sighandler (SIGINT)) == trap_handler))
     {
-      last_command_exit_value = EXECUTION_FAILURE;
+      last_command_exit_value = 128+SIGINT;
       restore_sigint_handler ();
       interrupt_immediately = 0;
       trap_handler (SIGINT);	/* set pending_traps[SIGINT] */
       wait_signal_received = SIGINT;
-      longjmp (wait_intr_buf, 1);
+      SIGRETURN (0);
     }
 
   if (interrupt_immediately)
@@ -741,6 +772,7 @@ wait_for (pid)
   while ((got_pid = WAITPID (-1, &status, 0)) != pid) /* XXX was pid now -1 */
     {
       CHECK_TERMSIG;
+      CHECK_WAIT_INTR;
       if (got_pid < 0 && errno == ECHILD)
 	{
 #if !defined (_POSIX_VERSION)
@@ -763,6 +795,9 @@ wait_for (pid)
   if (got_pid >= 0)
     reap_zombie_children ();
 #endif /* HAVE_WAITPID */
+
+  CHECK_TERMSIG;
+  CHECK_WAIT_INTR;
 
   if (interactive_shell == 0)
     {
@@ -791,17 +826,21 @@ wait_for (pid)
   return_val = process_exit_status (status);
   last_command_exit_signal = get_termsig (status);
 
-#if !defined (DONT_REPORT_SIGPIPE)
-  if ((WIFSTOPPED (status) == 0) && WIFSIGNALED (status) &&
-	(WTERMSIG (status) != SIGINT))
+#if defined (DONT_REPORT_SIGPIPE) && defined (DONT_REPORT_SIGTERM)
+#  define REPORTSIG(x) ((x) != SIGINT && (x) != SIGPIPE && (x) != SIGTERM)
+#elif !defined (DONT_REPORT_SIGPIPE) && !defined (DONT_REPORT_SIGTERM)
+#  define REPORTSIG(x) ((x) != SIGINT)
+#elif defined (DONT_REPORT_SIGPIPE)
+#  define REPORTSIG(x) ((x) != SIGINT && (x) != SIGPIPE)
 #else
-  if ((WIFSTOPPED (status) == 0) && WIFSIGNALED (status) &&
-	(WTERMSIG (status) != SIGINT) && (WTERMSIG (status) != SIGPIPE))
+#  define REPORTSIG(x) ((x) != SIGINT && (x) != SIGTERM)
 #endif
+
+  if ((WIFSTOPPED (status) == 0) && WIFSIGNALED (status) && REPORTSIG(WTERMSIG (status)))
     {
       fprintf (stderr, "%s", j_strsignal (WTERMSIG (status)));
       if (WIFCORED (status))
-	fprintf (stderr, " (core dumped)");
+	fprintf (stderr, _(" (core dumped)"));
       fprintf (stderr, "\n");
     }
 
@@ -812,6 +851,8 @@ wait_for (pid)
       else
 	get_tty_state ();
     }
+  else if (interactive_shell == 0 && subshell_environment == 0 && check_window_size)
+    get_new_window_size (0, (int *)0, (int *)0);
 
   return (return_val);
 }
@@ -914,6 +955,11 @@ describe_pid (pid)
      pid_t pid;
 {
   fprintf (stderr, "%ld\n", (long) pid);
+}
+
+void
+freeze_jobs_list ()
+{
 }
 
 void

@@ -2,21 +2,20 @@
 # Makefile for the Bash library
 #
 #
-# Copyright (C) 1998-2005 Free Software Foundation, Inc.
+# Copyright (C) 1998-2010 Free Software Foundation, Inc.
 
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2, or (at your option)
-# any later version.
+#   This program is free software: you can redistribute it and/or modify
+#   it under the terms of the GNU General Public License as published by
+#   the Free Software Foundation, either version 3 of the License, or
+#   (at your option) any later version.
 
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
+#   This program is distributed in the hope that it will be useful,
+#   but WITHOUT ANY WARRANTY; without even the implied warranty of
+#   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#   GNU General Public License for more details.
 
-# You should have received a copy of the GNU General Public License
-# along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111 USA.
+#   You should have received a copy of the GNU General Public License
+#   along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 PACKAGE = @PACKAGE_NAME@
 VERSION = @PACKAGE_VERSION@
@@ -39,6 +38,8 @@ INTL_LIBSRC = ${topdir}/lib/intl
 INTL_BUILDDIR = ${LIBBUILD}/intl
 INTL_INC = @INTL_INC@
 LIBINTL_H = @LIBINTL_H@
+
+datarootdir = @datarootdir@
 
 INSTALL = @INSTALL@
 INSTALL_PROGRAM = @INSTALL_PROGRAM@
@@ -85,11 +86,13 @@ CSOURCES = clktck.c clock.c getcwd.c getenv.c oslib.c setlinebuf.c \
 	   vprint.c itos.c rename.c zread.c zwrite.c shtty.c \
 	   inet_aton.c netconn.c netopen.c strpbrk.c timeval.c makepath.c \
 	   pathcanon.c pathphys.c tmpfile.c stringlist.c stringvec.c spell.c \
-	   shquote.c strtrans.c strindex.c snprintf.c mailstat.c \
+	   shquote.c strtrans.c strcasestr.c snprintf.c mailstat.c \
 	   fmtulong.c fmtullong.c fmtumax.c shmatch.c strnlen.c \
 	   strtoll.c strtoull.c strtoimax.c strtoumax.c memset.c strstr.c \
-	   mktime.c strftime.c xstrchr.c zcatfd.c winsize.c eaccess.c \
-	   wcsdup.c
+	   mktime.c strftime.c mbschr.c zcatfd.c zmapfd.c winsize.c eaccess.c \
+	   wcsdup.c fpurge.c zgetline.c mbscmp.c uconvert.c ufuncs.c \
+	   casemod.c dprintf.c input_avail.c mbscasecmp.c fnxform.c \
+	   strchrnul.c unicode.c wcswidth.c wcsnwidth.c shmbchar.c strdup.c
 
 # The header files for this library.
 HSOURCES = 
@@ -100,9 +103,11 @@ OBJECTS = clktck.o clock.o getenv.o oslib.o setlinebuf.o strnlen.o \
 	  itos.o zread.o zwrite.o shtty.o shmatch.o eaccess.o \
 	  netconn.o netopen.o timeval.o makepath.o pathcanon.o \
 	  pathphys.o tmpfile.o stringlist.o stringvec.o spell.o shquote.o \
-	  strtrans.o strindex.o snprintf.o mailstat.o fmtulong.o \
-	  fmtullong.o fmtumax.o xstrchr.o zcatfd.o winsize.o wcsdup.o \
-	  ${LIBOBJS}
+	  strtrans.o snprintf.o mailstat.o fmtulong.o \
+	  fmtullong.o fmtumax.o zcatfd.o zmapfd.o winsize.o wcsdup.o \
+	  fpurge.o zgetline.o mbscmp.o uconvert.o ufuncs.o casemod.o \
+	  input_avail.o mbscasecmp.o fnxform.o unicode.o shmbchar.o \
+	  wcsnwidth.o ${LIBOBJS}
 
 SUPPORT = Makefile
 
@@ -133,19 +138,29 @@ mostlyclean: clean
 ${BUILD_DIR}/version.h: ${BUILD_DIR}/config.h ${BUILD_DIR}/Makefile Makefile
 	-( cd ${BUILD_DIR} && ${MAKE} ${MFLAGS} version.h )
 
+${BUILD_DIR}/pathnames.h: ${BUILD_DIR}/config.h ${BUILD_DIR}/Makefile Makefile
+	-( cd ${BUILD_DIR} && ${MAKE} ${MFLAGS} pathnames.h )
+
 # rules for losing makes, like SunOS
+casemod.o: casemod.c
 clktck.o: clktck.c
 clock.o: clock.c
 eaccess.o: eaccess.c
+dprintf.o: dprintf.c
 fmtullong.o: fmtullong.c
 fmtulong.o: fmtulong.c
 fmtumax.o: fmtumax.c
+fnxform.o: fnxform.c
+fpurge.o: fpurge.c
 getcwd.o: getcwd.c
 getenv.o: getenv.c
 inet_aton.o: inet_aton.c
+input_avail.o: input_avail.c
 itos.o: itos.c
 mailstat.o: mailstat.c
 makepath.o: makepath.c
+mbscasecmp.o: mbscasecmp.c
+mbscmp.o: mbscmp.c
 memset.o: memset.c
 mktime.o: mktime.c
 netconn.o: netconn.c
@@ -155,6 +170,7 @@ pathcanon.o: pathcanon.c
 pathphys.o: pathphys.c
 rename.o: rename.c
 setlinebuf.o: setlinebuf.c
+shmbchar.o: shmbchar.c
 shquote.o: shquote.c
 shtty.o: shtty.c
 snprintf.o: snprintf.c
@@ -162,7 +178,7 @@ spell.o: spell.c
 strcasecmp.o: strcasecmp.c
 strerror.o: strerror.c
 strftime.o: strftime.c
-strindex.o: strindex.c
+strcasestr.o: strcasestr.c
 stringlist.o: stringlist.c
 stringvec.o: stringvec.c
 strnlen.o: strnlen.c
@@ -178,10 +194,16 @@ strtrans.o: strtrans.c
 times.o: times.c
 timeval.o: timeval.c
 tmpfile.o: tmpfile.c
+uconvert.o: uconvert.c
+ufuncs.o: ufuncs.c
 vprint.o: vprint.c
 wcsdup.o: wcsdup.c
-xstrchr.o: xstrchr.c
+wcsnwidth.o: wcsnwidth.c
+wcswidth.o: wcswidth.c
+mbschr.o: mbschr.c
 zcatfd.o: zcatfd.c
+zmapfd.o: zmapfd.c
+zgetline.o: zgetline.c
 zread.o: zread.c
 zwrite.o: zwrite.c
 
@@ -193,18 +215,25 @@ strtoul.o: strtol.c
 strtoull.o: strtol.c
 
 # all files in the library depend on config.h
+casemod.o: ${BUILD_DIR}/config.h
 clktck.o: ${BUILD_DIR}/config.h
 clock.o: ${BUILD_DIR}/config.h
 eaccess.o: ${BUILD_DIR}/config.h
+dprintf.o: ${BUILD_DIR}/config.h
 fmtullong.o: ${BUILD_DIR}/config.h
 fmtulong.o: ${BUILD_DIR}/config.h
 fmtumax.o: ${BUILD_DIR}/config.h
+fnxform.o: ${BUILD_DIR}/config.h
+fpurge.o: ${BUILD_DIR}/config.h
 getcwd.o: ${BUILD_DIR}/config.h
 getenv.o: ${BUILD_DIR}/config.h
 inet_aton.o: ${BUILD_DIR}/config.h
+input_avail.o: ${BUILD_DIR}/config.h
 itos.o: ${BUILD_DIR}/config.h
 mailstat.o: ${BUILD_DIR}/config.h
 makepath.o: ${BUILD_DIR}/config.h
+mbscasecmp.o: ${BUILD_DIR}/config.h
+mbscmp.o: ${BUILD_DIR}/config.h
 memset.o: ${BUILD_DIR}/config.h
 mktime.o: ${BUILD_DIR}/config.h
 netconn.o: ${BUILD_DIR}/config.h
@@ -214,6 +243,7 @@ pathcanon.o: ${BUILD_DIR}/config.h
 pathphys.o: ${BUILD_DIR}/config.h
 rename.o: ${BUILD_DIR}/config.h
 setlinebuf.o: ${BUILD_DIR}/config.h
+shmbchare.o: ${BUILD_DIR}/config.h
 shquote.o: ${BUILD_DIR}/config.h
 shtty.o: ${BUILD_DIR}/config.h
 snprintf.o: ${BUILD_DIR}/config.h
@@ -221,7 +251,7 @@ spell.o: ${BUILD_DIR}/config.h
 strcasecmp.o: ${BUILD_DIR}/config.h
 strerror.o: ${BUILD_DIR}/config.h
 strftime.o: ${BUILD_DIR}/config.h
-strindex.o: ${BUILD_DIR}/config.h
+strcasestr.o: ${BUILD_DIR}/config.h
 stringlist.o: ${BUILD_DIR}/config.h
 stringvec.o: ${BUILD_DIR}/config.h
 strnlen.o: ${BUILD_DIR}/config.h
@@ -237,10 +267,16 @@ strtrans.o: ${BUILD_DIR}/config.h
 times.o: ${BUILD_DIR}/config.h
 timeval.o: ${BUILD_DIR}/config.h
 tmpfile.o: ${BUILD_DIR}/config.h
+uconvert.o: ${BUILD_DIR}/config.h
+ufuncs.o: ${BUILD_DIR}/config.h
 vprint.o: ${BUILD_DIR}/config.h
 wcsdup.o: ${BUILD_DIR}/config.h
-xstrchr.o: ${BUILD_DIR}/config.h
+wcsnwidth.o: ${BUILD_DIR}/config.h
+wcswidth.o: ${BUILD_DIR}/config.h
+mbschr.o: ${BUILD_DIR}/config.h
 zcatfd.o: ${BUILD_DIR}/config.h
+zgetline.o: ${BUILD_DIR}/config.h
+zmapfd.o: ${BUILD_DIR}/config.h
 zread.o: ${BUILD_DIR}/config.h
 zwrite.o: ${BUILD_DIR}/config.h
 
@@ -258,7 +294,7 @@ getenv.o: ${topdir}/array.h ${topdir}/hashlib.h ${topdir}/quit.h
 getenv.o: ${topdir}/unwind_prot.h ${topdir}/dispose_cmd.h
 getenv.o: ${topdir}/make_cmd.h ${topdir}/subst.h ${topdir}/sig.h
 getenv.o: ${BUILD_DIR}/pathnames.h ${topdir}/externs.h
-getenv.o: ${BUILD_DIR}/version.h
+#getenv.o: ${BUILD_DIR}/version.h
 
 inet_aton.o: ${topdir}/bashansi.h ${BASHINCDIR}/ansi_stdlib.h
 inet_aton.o: ${BASHINCDIR}/stdc.h
@@ -270,7 +306,8 @@ itos.o: ${topdir}/general.h ${topdir}/bashtypes.h ${topdir}/variables.h ${topdir
 itos.o: ${topdir}/array.h ${topdir}/hashlib.h ${topdir}/quit.h
 itos.o: ${topdir}/unwind_prot.h ${topdir}/dispose_cmd.h
 itos.o: ${topdir}/make_cmd.h ${topdir}/subst.h ${topdir}/sig.h
-itos.o: ${BUILD_DIR}/pathnames.h ${topdir}/externs.h ${BUILD_DIR}/version.h
+itos.o: ${BUILD_DIR}/pathnames.h ${topdir}/externs.h
+#itos.o: ${BUILD_DIR}/version.h
 
 makepath.o: ${topdir}/bashansi.h ${BASHINCDIR}/ansi_stdlib.h
 makepath.o: ${topdir}/shell.h ${topdir}/syntax.h ${topdir}/bashjmp.h ${BASHINCDIR}/posixjmp.h
@@ -279,7 +316,8 @@ makepath.o: ${topdir}/general.h ${topdir}/bashtypes.h ${topdir}/variables.h ${to
 makepath.o: ${topdir}/array.h ${topdir}/hashlib.h ${topdir}/quit.h
 makepath.o: ${topdir}/unwind_prot.h ${topdir}/dispose_cmd.h
 makepath.o: ${topdir}/make_cmd.h ${topdir}/subst.h ${topdir}/sig.h
-makepath.o: ${BUILD_DIR}/pathnames.h ${topdir}/externs.h ${BUILD_DIR}/version.h
+makepath.o: ${BUILD_DIR}/pathnames.h ${topdir}/externs.h
+#makepath.o: ${BUILD_DIR}/version.h
 
 netconn.o: ${BASHINCDIR}/posixstat.h ${BASHINCDIR}/filecntl.h
 netconn.o: ${topdir}/bashtypes.h
@@ -291,8 +329,9 @@ netopen.o: ${topdir}/general.h ${topdir}/bashtypes.h ${topdir}/variables.h ${top
 netopen.o: ${topdir}/array.h ${topdir}/hashlib.h ${topdir}/quit.h
 netopen.o: ${topdir}/unwind_prot.h ${topdir}/dispose_cmd.h
 netopen.o: ${topdir}/make_cmd.h ${topdir}/subst.h ${topdir}/sig.h
-netopen.o: ${BUILD_DIR}/pathnames.h ${topdir}/externs.h ${BUILD_DIR}/version.h
+netopen.o: ${BUILD_DIR}/pathnames.h ${topdir}/externs.h
 netopen.o: ${topdir}/bashintl.h ${LIBINTL_H} $(BASHINCDIR)/gettext.h
+#netopen.o: ${BUILD_DIR}/version.h
 
 oslib.o: ${topdir}/bashtypes.h ${topdir}/bashansi.h ${BASHINCDIR}/maxpath.h
 oslib.o: ${topdir}/shell.h ${topdir}/syntax.h ${topdir}/bashjmp.h ${BASHINCDIR}/posixjmp.h
@@ -301,9 +340,10 @@ oslib.o: ${topdir}/general.h ${topdir}/bashtypes.h ${topdir}/variables.h ${topdi
 oslib.o: ${topdir}/array.h ${topdir}/hashlib.h ${topdir}/quit.h
 oslib.o: ${topdir}/unwind_prot.h ${topdir}/dispose_cmd.h
 oslib.o: ${topdir}/make_cmd.h ${topdir}/subst.h ${topdir}/sig.h
-oslib.o: ${BUILD_DIR}/pathnames.h ${topdir}/externs.h ${BUILD_DIR}/version.h
+oslib.o: ${BUILD_DIR}/pathnames.h ${topdir}/externs.h
 oslib.o: ${BASHINCDIR}/posixstat.h ${BASHINCDIR}/filecntl.h
 oslib.o: ${BASHINCDIR}/ansi_stdlib.h ${BASHINCDIR}/chartypes.h
+#oslib.o: ${BUILD_DIR}/version.h
 
 pathcanon.o: ${topdir}/bashtypes.h ${topdir}/bashansi.h ${BASHINCDIR}/maxpath.h
 pathcanon.o: ${topdir}/shell.h ${topdir}/syntax.h ${topdir}/bashjmp.h ${BASHINCDIR}/posixjmp.h
@@ -312,9 +352,10 @@ pathcanon.o: ${topdir}/general.h ${topdir}/bashtypes.h ${topdir}/variables.h ${t
 pathcanon.o: ${topdir}/array.h ${topdir}/hashlib.h ${topdir}/quit.h
 pathcanon.o: ${topdir}/unwind_prot.h ${topdir}/dispose_cmd.h
 pathcanon.o: ${topdir}/make_cmd.h ${topdir}/subst.h ${topdir}/sig.h
-pathcanon.o: ${BUILD_DIR}/pathnames.h ${topdir}/externs.h ${BUILD_DIR}/version.h
+pathcanon.o: ${BUILD_DIR}/pathnames.h ${topdir}/externs.h
 pathcanon.o: ${BASHINCDIR}/posixstat.h ${BASHINCDIR}/filecntl.h
 pathcanon.o: ${BASHINCDIR}/ansi_stdlib.h ${BASHINCDIR}/chartypes.h
+#pathcanon.o: ${BUILD_DIR}/version.h
 
 pathphys.o: ${topdir}/bashtypes.h ${topdir}/bashansi.h ${BASHINCDIR}/maxpath.h
 pathphys.o: ${topdir}/shell.h ${topdir}/syntax.h ${topdir}/bashjmp.h ${BASHINCDIR}/posixjmp.h
@@ -323,9 +364,10 @@ pathphys.o: ${topdir}/general.h ${topdir}/bashtypes.h ${topdir}/variables.h ${to
 pathphys.o: ${topdir}/array.h ${topdir}/hashlib.h ${topdir}/quit.h
 pathphys.o: ${topdir}/unwind_prot.h ${topdir}/dispose_cmd.h
 pathphys.o: ${topdir}/make_cmd.h ${topdir}/subst.h ${topdir}/sig.h
-pathphys.o: ${BUILD_DIR}/pathnames.h ${topdir}/externs.h ${BUILD_DIR}/version.h
+pathphys.o: ${BUILD_DIR}/pathnames.h ${topdir}/externs.h
 pathphys.o: ${BASHINCDIR}/posixstat.h ${BASHINCDIR}/filecntl.h
 pathphys.o: ${BASHINCDIR}/ansi_stdlib.h ${BASHINCDIR}/chartypes.h
+#pathphys.o: ${BUILD_DIR}/version.h
 
 rename.o: ${topdir}/bashtypes.h ${BASHINCDIR}/stdc.h
 rename.o: ${BASHINCDIR}/posixstat.h
@@ -344,7 +386,8 @@ eaccess.o: ${topdir}/general.h ${topdir}/bashtypes.h ${topdir}/variables.h ${top
 eaccess.o: ${topdir}/array.h ${topdir}/hashlib.h ${topdir}/quit.h
 eaccess.o: ${topdir}/unwind_prot.h ${topdir}/dispose_cmd.h
 eaccess.o: ${topdir}/make_cmd.h ${topdir}/subst.h ${topdir}/sig.h
-eaccess.o: ${BUILD_DIR}/pathnames.h ${topdir}/externs.h ${BUILD_DIR}/version.h
+eaccess.o: ${BUILD_DIR}/pathnames.h ${topdir}/externs.h
+#eaccess.o: ${BUILD_DIR}/version.h
 
 shquote.o: ${BASHINCDIR}/stdc.h ${topdir}/bashansi.h
 shquote.o: ${BASHINCDIR}/ansi_stdlib.h ${topdir}/xmalloc.h
@@ -370,10 +413,11 @@ strerror.o: ${topdir}/general.h ${topdir}/bashtypes.h ${topdir}/variables.h ${to
 strerror.o: ${topdir}/array.h ${topdir}/hashlib.h ${topdir}/quit.h
 strerror.o: ${topdir}/unwind_prot.h ${topdir}/dispose_cmd.h
 strerror.o: ${topdir}/make_cmd.h ${topdir}/subst.h ${topdir}/sig.h
-strerror.o: ${BUILD_DIR}/pathnames.h ${topdir}/externs.h ${BUILD_DIR}/version.h
+strerror.o: ${BUILD_DIR}/pathnames.h ${topdir}/externs.h
+#strerror.o: ${BUILD_DIR}/version.h
 
-strindex.o: ${BASHINCDIR}/stdc.h ${topdir}/bashansi.h
-strindex.o: ${BASHINCDIR}/ansi_stdlib.h ${BASHINCDIR}/chartypes.h
+strcasestr.o: ${BASHINCDIR}/stdc.h ${topdir}/bashansi.h
+strcasestr.o: ${BASHINCDIR}/ansi_stdlib.h ${BASHINCDIR}/chartypes.h
 
 stringlist.o: ${topdir}/bashansi.h
 stringlist.o: ${topdir}/shell.h ${topdir}/syntax.h ${topdir}/bashjmp.h ${BASHINCDIR}/posixjmp.h
@@ -382,7 +426,8 @@ stringlist.o: ${topdir}/general.h ${topdir}/bashtypes.h ${topdir}/variables.h ${
 stringlist.o: ${topdir}/array.h ${topdir}/hashlib.h ${topdir}/quit.h
 stringlist.o: ${topdir}/unwind_prot.h ${topdir}/dispose_cmd.h
 stringlist.o: ${topdir}/make_cmd.h ${topdir}/subst.h ${topdir}/sig.h
-stringlist.o: ${BUILD_DIR}/pathnames.h ${topdir}/externs.h ${BUILD_DIR}/version.h
+stringlist.o: ${BUILD_DIR}/pathnames.h ${topdir}/externs.h
+#stringlist.o: ${BUILD_DIR}/version.h
 
 stringvec.o: ${topdir}/bashansi.h ${BASHINCDIR}/chartypes.h
 stringvec.o: ${topdir}/shell.h ${topdir}/syntax.h ${topdir}/bashjmp.h ${BASHINCDIR}/posixjmp.h
@@ -391,7 +436,8 @@ stringvec.o: ${topdir}/general.h ${topdir}/bashtypes.h ${topdir}/variables.h ${t
 stringvec.o: ${topdir}/array.h ${topdir}/hashlib.h ${topdir}/quit.h
 stringvec.o: ${topdir}/unwind_prot.h ${topdir}/dispose_cmd.h
 stringvec.o: ${topdir}/make_cmd.h ${topdir}/subst.h ${topdir}/sig.h
-stringvec.o: ${BUILD_DIR}/pathnames.h ${topdir}/externs.h ${BUILD_DIR}/version.h
+stringvec.o: ${BUILD_DIR}/pathnames.h ${topdir}/externs.h
+#stringvec.o: ${BUILD_DIR}/version.h
 
 strnlen.o: ${BASHINCDIR}/stdc.h
 
@@ -428,7 +474,8 @@ strtrans.o: ${topdir}/general.h ${topdir}/bashtypes.h ${topdir}/variables.h ${to
 strtrans.o: ${topdir}/array.h ${topdir}/hashlib.h ${topdir}/quit.h
 strtrans.o: ${topdir}/unwind_prot.h ${topdir}/dispose_cmd.h
 strtrans.o: ${topdir}/make_cmd.h ${topdir}/subst.h ${topdir}/sig.h
-strtrans.o: ${BUILD_DIR}/pathnames.h ${topdir}/externs.h ${BUILD_DIR}/version.h
+strtrans.o: ${BUILD_DIR}/pathnames.h ${topdir}/externs.h
+#strtrans.o: ${BUILD_DIR}/version.h
 
 times.o: ${BASHINCDIR}/systimes.h
 times.o: ${BASHINCDIR}/posixtime.h
@@ -438,6 +485,10 @@ timeval.o: ${BASHINCDIR}/posixtime.h
 tmpfile.o: ${topdir}/bashtypes.h
 tmpfile.o: ${BASHINCDIR}/posixstat.h
 tmpfile.o: ${BASHINCDIR}/filecntl.h
+
+uconvert.o: ${topdir}/bashtypes.h
+
+ufuncs.o: ${topdir}/bashtypes.h
 
 clock.o: ${BASHINCDIR}/posixtime.h
 
@@ -473,6 +524,48 @@ wcsdup.o: ${topdir}/bashansi.h ${BASHINCDIR}/ansi_stdlib.h
 wcsdup.o: ${BASHINCDIR}/stdc.h
 wcsdup.o: ${topdir}/xmalloc.h
 
-xstrchr.o: ${topdir}/bashansi.h
-xstrchr.o: ${BASHINCDIR}/ansi_stdlib.h
-xstrchr.o: ${BASHINCDIR}/shmbutil.h
+wcsnwidth.o: ${topdir}/bashansi.h ${BASHINCDIR}/ansi_stdlib.h
+wcsnwidth.o: ${BASHINCDIR}/stdc.h
+
+wcswidth.o: ${topdir}/bashansi.h ${BASHINCDIR}/ansi_stdlib.h
+wcswidth.o: ${BASHINCDIR}/stdc.h
+
+mbschr.o: ${topdir}/bashansi.h
+mbschr.o: ${BASHINCDIR}/ansi_stdlib.h
+mbschr.o: ${BASHINCDIR}/shmbutil.h ${BASHINCDIR}/shmbchar.h
+
+zgetline.o: ${topdir}/bashansi.h ${BASHINCDIR}/ansi_stdlib.h
+zgetline.o: ${BASHINCDIR}/stdc.h
+zgetline.o: ${topdir}/xmalloc.h
+zgetline.o: ${topdir}/bashtypes.h
+
+mbscasecmp.o: ${topdir}/bashansi.h ${BASHINCDIR}/ansi_stdlib.h
+mbscasecmp.o: ${BASHINCDIR}/stdc.h
+mbscasecmp.o: ${topdir}/xmalloc.h
+
+mbscmp.o: ${topdir}/bashansi.h ${BASHINCDIR}/ansi_stdlib.h
+mbscmp.o: ${BASHINCDIR}/stdc.h
+mbscmp.o: ${topdir}/xmalloc.h
+
+casemod.o: ${topdir}/bashansi.h ${BASHINCDIR}/ansi_stdlib.h
+casemod.o: ${BASHINCDIR}/stdc.h
+casemod.o: ${topdir}/xmalloc.h
+casemod.o: ${topdir}/bashtypes.h
+casemod.o: ${BASHINCDIR}/shmbutil.h ${BASHINCDIR}/shmbchar.h
+casemod.o: ${topdir}/bashintl.h ${LIBINTL_H} ${BASHINCDIR}/gettext.h
+
+dprintf.o: ${BASHINCDIR}/stdc.h
+
+input_avail.o: ${topdir}/bashansi.h ${BASHINCDIR}/ansi_stdlib.h
+input_avail.o: ${BASHINCDIR}/stdc.h
+input_avail.o: ${topdir}/xmalloc.h ${BASHINCDIR}/posixselect.h
+
+mktime.o: ${topdir}/bashansi.h ${BASHINCDIR}/ansi_stdlib.h
+mktime.o: ${BASHINCDIR}/stdc.h
+
+fnxform.o: ${topdir}/bashansi.h ${BASHINCDIR}/ansi_stdlib.h
+fnxform.o: ${BASHINCDIR}/stdc.h
+fnxform.o: ${topdir}/bashtypes.h
+fnxform.o: ${topdir}/bashintl.h ${LIBINTL_H} ${BASHINCDIR}/gettext.h
+
+shmbchar.o: ${BASHINCDIR}/shmbchar.h

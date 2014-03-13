@@ -46,3 +46,90 @@ file
 hits	command
    3	/tmp/bash
    1	/bin/sh
+f is a function
+f () 
+{ 
+    v='^A'
+}
+foo is a function
+foo () 
+{ 
+    echo $(<x1)
+}
+bar is a function
+bar () 
+{ 
+    echo $(<x1)
+}
+foo is a function
+foo () 
+{ 
+    echo;
+    cat  <<END
+bar
+END
+
+    cat  <<EOF
+qux
+EOF
+
+}
+
+bar
+qux
+
+bar
+qux
+foo is a function
+foo () 
+{ 
+    rm -f a b c;
+    for f in a b c;
+    do
+        cat  >> ${f} <<-EOF
+file
+EOF
+
+    done
+    grep . a b c
+}
+a:file
+b:file
+c:file
+bb is a function
+bb () 
+{ 
+    ( cat  <<EOF
+foo
+bar
+EOF
+ )
+    echo after subshell
+}
+mkcoprocs is a function
+mkcoprocs () 
+{ 
+    coproc a { 
+        cat  <<EOF1
+producer 1
+EOF1
+
+    }
+    coproc b { 
+        cat  <<EOF2
+producer 2
+EOF2
+
+    }
+    echo "coprocs created"
+}
+mkcoprocs is a function
+mkcoprocs () 
+{ 
+    coproc COPROC ( b cat  <<EOF
+heredoc
+body
+EOF
+ )
+    echo "coprocs created"
+}

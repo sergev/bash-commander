@@ -69,6 +69,8 @@ echo ${#a[5]}
 echo ${#a[@]}
 
 a[4+5/2]="test expression"
+declare a["7 + 8"]="test 2"
+a[7 + 8]="test 2"
 echo ${a[@]}
 
 readonly a[5]
@@ -253,6 +255,8 @@ foo=([10]="bar")
 echo ${foo[0]}
 rm 1=bar
 
+cd $OLDPWD
+
 foo=(a b c d e f g)
 echo ${foo[@]}
 
@@ -372,34 +376,27 @@ declare -a x=($0)
 declare -a x=(\$0)
 echo "${x[@]}"
 
-: ${TMPDIR:=/tmp}
+# tests for bash-3.1 problems
+${THIS_SH} ./array5.sub
 
-mkdir $TMPDIR/bash-test-$$
-cd $TMPDIR/bash-test-$$
+# tests for post-bash-3.2 problems, most fixed in bash-3.2 patches
+${THIS_SH} ./array6.sub
+${THIS_SH} ./array7.sub
 
-trap "cd / ; rm -rf $TMPDIR/bash-test-$$" 0 1 2 3 6 15
+${THIS_SH} ./array8.sub
 
-touch '[3]=abcde'
+${THIS_SH} ./array9.sub
 
-touch r s t u v
+${THIS_SH} ./array10.sub
 
-declare -a x=(*)
+${THIS_SH} ./array11.sub
 
-echo ${x[3]}
-echo ${x[@]}
+${THIS_SH} ./array12.sub
 
-unset x
-x=(a b c d e)
+${THIS_SH} ./array13.sub
 
-echo ${x[*]: -1}
+${THIS_SH} ./array14.sub
 
-unset x[4]
-unset x[2]
+${THIS_SH} ./array15.sub
 
-x[9]='9'
-
-echo ${x[*]: -1}
-
-TOOLKIT=(1 2 3 4 5 6 7 8 9 10)
-ARRAY="1"
-echo ${TOOLKIT["$ARRAY"]}
+${THIS_SH} ./array16.sub

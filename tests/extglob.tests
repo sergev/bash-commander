@@ -193,7 +193,8 @@ esac
 
 MYDIR=$PWD      # save where we are
 
-TESTDIR=/tmp/eglob-test-$$
+: ${TMPDIR:=/var/tmp}
+TESTDIR=$TMPDIR/eglob-test-$$
 mkdir $TESTDIR
 builtin cd $TESTDIR || { echo $0: cannot cd to $TESTDIR >&2 ; exit 1; }
 rm -rf *
@@ -356,10 +357,17 @@ rm -rf $TESTDIR
 x=abcdef
 recho "${x#*(a|b)cd}"
 
+TEST='a , b'
+shopt -s globstar
+echo ${TEST//*([[:space:]]),*([[:space:]])/,}
+shopt -u globstar
+
 # this is for the benefit of pure coverage, so it writes the pcv file
 # in the right place
-builtin cd $MYDIR
+builtin cd "$MYDIR"
 
 ${THIS_SH} ./extglob1.sub
+
+${THIS_SH} ./extglob1a.sub
 
 exit 0

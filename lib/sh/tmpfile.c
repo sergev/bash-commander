@@ -6,19 +6,19 @@
 
    This file is part of GNU Bash, the Bourne Again SHell.
 
-   Bash is free software; you can redistribute it and/or modify it
-   under the terms of the GNU General Public License as published by
-   the Free Software Foundation; either version 2, or (at your option)
-   any later version.
+   Bash is free software: you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation, either version 3 of the License, or
+   (at your option) any later version.
 
-   Bash is distributed in the hope that it will be useful, but WITHOUT
-   ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-   or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
-   License for more details.
+   Bash is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
 
    You should have received a copy of the GNU General Public License
-   along with Bash; see the file COPYING.  If not, write to the Free
-   Software Foundation, 59 Temple Place, Suite 330, Boston, MA 02111 USA. */
+   along with Bash.  If not, see <http://www.gnu.org/licenses/>.
+*/
 
 #include <config.h>
 
@@ -31,6 +31,8 @@
 #  include <unistd.h>
 #endif
 
+#include <bashansi.h>
+
 #include <stdio.h>
 #include <errno.h>
 
@@ -40,7 +42,7 @@
 extern int errno;
 #endif
 
-#define BASEOPENFLAGS	(O_CREAT | O_TRUNC | O_EXCL)
+#define BASEOPENFLAGS	(O_CREAT | O_TRUNC | O_EXCL | O_BINARY)
 
 #define DEFAULT_TMPDIR		"."	/* bogus default, should be changed */
 #define DEFAULT_NAMEROOT	"shtmp"
@@ -91,6 +93,9 @@ get_tmpdir (flags)
   char *tdir;
 
   tdir = (flags & MT_USETMPDIR) ? get_string_value ("TMPDIR") : (char *)NULL;
+  if (tdir && (file_iswdir (tdir) == 0 || strlen (tdir) > PATH_MAX))
+    tdir = 0;
+
   if (tdir == 0)
     tdir = get_sys_tmpdir ();
 
@@ -132,7 +137,7 @@ sh_mktmpname (nameroot, flags)
       filenum = (filenum << 1) ^
 		(unsigned long) time ((time_t *)0) ^
 		(unsigned long) dollar_dollar_pid ^
-		(unsigned long) ((flags & MT_USERANDOM) ? get_random_number () : ntmpfiles++);
+		(unsigned long) ((flags & MT_USERANDOM) ? random () : ntmpfiles++);
       sprintf (filename, "%s/%s-%lu", tdir, lroot, filenum);
       if (tmpnamelen > 0 && tmpnamelen < 32)
 	filename[tdlen + 1 + tmpnamelen] = '\0';
@@ -181,7 +186,7 @@ sh_mktmpfd (nameroot, flags, namep)
       filenum = (filenum << 1) ^
 		(unsigned long) time ((time_t *)0) ^
 		(unsigned long) dollar_dollar_pid ^
-		(unsigned long) ((flags & MT_USERANDOM) ? get_random_number () : ntmpfiles++);
+		(unsigned long) ((flags & MT_USERANDOM) ? random () : ntmpfiles++);
       sprintf (filename, "%s/%s-%lu", tdir, lroot, filenum);
       if (tmpnamelen > 0 && tmpnamelen < 32)
 	filename[tdlen + 1 + tmpnamelen] = '\0';

@@ -1,54 +1,58 @@
 This file is fc.def, from which is created fc.c.
 It implements the builtin "fc" in Bash.
 
-Copyright (C) 1987-2005 Free Software Foundation, Inc.
+Copyright (C) 1987-2011 Free Software Foundation, Inc.
 
 This file is part of GNU Bash, the Bourne Again SHell.
 
-Bash is free software; you can redistribute it and/or modify it under
-the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
-version.
+Bash is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
 
-Bash is distributed in the hope that it will be useful, but WITHOUT ANY
-WARRANTY; without even the implied warranty of MERCHANTABILITY or
-FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-for more details.
+Bash is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
 
-You should have received a copy of the GNU General Public License along
-with Bash; see the file COPYING.  If not, write to the Free Software
-Foundation, 59 Temple Place, Suite 330, Boston, MA 02111 USA.
+You should have received a copy of the GNU General Public License
+along with Bash.  If not, see <http://www.gnu.org/licenses/>.
 
 $PRODUCES fc.c
 
 $BUILTIN fc
 $FUNCTION fc_builtin
 $DEPENDS_ON HISTORY
-$SHORT_DOC fc [-e ename] [-nlr] [first] [last] or fc -s [pat=rep] [cmd]
+$SHORT_DOC fc [-e ename] [-lnr] [first] [last] or fc -s [pat=rep] [command]
+Display or execute commands from the history list.
+
 fc is used to list or edit and re-execute commands from the history list.
 FIRST and LAST can be numbers specifying the range, or FIRST can be a
 string, which means the most recent command beginning with that
 string.
 
-   -e ENAME selects which editor to use.  Default is FCEDIT, then EDITOR,
-      then vi.
+Options:
+  -e ENAME	select which editor to use.  Default is FCEDIT, then EDITOR,
+		then vi
+  -l 	list lines instead of editing
+  -n	omit line numbers when listing
+  -r	reverse the order of the lines (newest listed first)
 
-   -l means list lines instead of editing.
-   -n means no line numbers listed.
-   -r means reverse the order of the lines (making it newest listed first).
-
-With the `fc -s [pat=rep ...] [command]' format, the command is
+With the `fc -s [pat=rep ...] [command]' format, COMMAND is
 re-executed after the substitution OLD=NEW is performed.
 
 A useful alias to use with this is r='fc -s', so that typing `r cc'
 runs the last command beginning with `cc' and typing `r' re-executes
 the last command.
+
+Exit Status:
+Returns success or status of executed command; non-zero if an error occurs.
 $END
 
 #include <config.h>
 
 #if defined (HISTORY)
-#ifndef _MINIX
+#if defined (HAVE_SYS_PARAM_H)
 #  include <sys/param.h>
 #endif
 #include "../bashtypes.h"
@@ -84,11 +88,11 @@ extern int errno;
 extern int current_command_line_count;
 extern int literal_history;
 extern int posixly_correct;
+extern int subshell_environment, interactive_shell;
 
 extern int unlink __P((const char *));
 
 extern FILE *sh_mktmpfp __P((char *, int, char **));
-extern int delete_last_history __P((void));
 
 /* **************************************************************** */
 /*								    */
@@ -169,7 +173,7 @@ fc_builtin (list)
   register int i;
   register char *sep;
   int numbering, reverse, listing, execute;
-  int histbeg, histend, last_hist, retval, opt;
+  int histbeg, histend, last_hist, retval, opt, rh, real_last;
   FILE *stream;
   REPL *rlist, *rl;
   char *ename, *command, *newcom, *fcedit;
@@ -272,6 +276,8 @@ fc_builtin (list)
 
       fprintf (stderr, "%s\n", command);
       fc_replhist (command);	/* replace `fc -s' with command */
+      /* Posix says that the re-executed commands should be entered into the
+	 history. */
       return (parse_and_execute (command, "fc", SEVAL_NOHIST));
     }
 
@@ -290,12 +296,30 @@ fc_builtin (list)
      line was actually added (HISTIGNORE may have caused it to not be),
      so we check hist_last_line_added. */
 
-  /* "When not  listing, he fc command that caused the editing shall not be
-     entered into the history list." */
-  if (listing == 0 && hist_last_line_added)
-    delete_last_history ();
+  /* Even though command substitution through parse_and_execute turns off
+     remember_on_history, command substitution in a shell when set -o history
+     has been enabled (interactive or not) should use it in the last_hist
+     calculation as if it were on. */
+  rh = remember_on_history || ((subshell_environment & SUBSHELL_COMSUB) && enable_history_list);
+  last_hist = i - rh - hist_last_line_added;
 
-  last_hist = i - 1 - hist_last_line_added;
+  /* Make sure that real_last is calculated the same way here and in
+     fc_gethnum.  The return value from fc_gethnum is treated specially if
+     it is == real_last and we are listing commands. */
+  real_last = i;
+  /* back up from the end to the last non-null history entry */
+  while (hlist[real_last] == 0 && real_last > 0)
+    real_last--;
+
+  /* XXX */
+  if (i == last_hist && hlist[last_hist] == 0)
+    while (last_hist >= 0 && hlist[last_hist] == 0)
+      last_hist--;
+  if (last_hist < 0)
+    {
+      sh_erange ((char *)NULL, _("history specification"));
+      return (EXECUTION_FAILURE);
+    }
 
   if (list)
     {
@@ -304,6 +328,8 @@ fc_builtin (list)
 
       if (list)
 	histend = fc_gethnum (list->word->word, hlist);
+      else if (histbeg == real_last)
+	histend = listing ? real_last : histbeg;
       else
 	histend = listing ? last_hist : histbeg;
     }
@@ -320,6 +346,21 @@ fc_builtin (list)
       else
 	/* For editing, it is the last history command. */
 	histbeg = histend = last_hist;
+    }
+
+  /* "When not listing, the fc command that caused the editing shall not be
+     entered into the history list." */
+  if (listing == 0 && hist_last_line_added)
+    {
+      bash_delete_last_history ();
+      /* If we're editing a single command -- the last command in the
+	 history -- and we just removed the dummy command added by
+	 edit_and_execute_command (), we need to check whether or not we
+	 just removed the last command in the history and need to back
+	 the pointer up.  remember_on_history is off because we're running
+	 in parse_and_execute(). */
+      if (histbeg == histend && histend == last_hist && hlist[last_hist] == 0)
+	last_hist = histbeg = --histend;
     }
 
   /* We print error messages for line specifications out of range. */
@@ -368,8 +409,15 @@ fc_builtin (list)
     }
 
   if (listing)
-    return (EXECUTION_SUCCESS);
+    return (sh_chkwrite (EXECUTION_SUCCESS));
 
+  fflush (stream);
+  if (ferror (stream))
+    {
+      sh_wrerror ();
+      fclose (stream);
+      return (EXECUTION_FAILURE);
+    }
   fclose (stream);
 
   /* Now edit the file of commands. */
@@ -436,10 +484,11 @@ fc_gethnum (command, hlist)
      char *command;
      HIST_ENTRY **hlist;
 {
-  int sign = 1, n, clen;
-  register int i, j;
+  int sign, n, clen, rh;
+  register int i, j, last_hist, real_last;
   register char *s;
 
+  sign = 1;
   /* Count history elements. */
   for (i = 0; hlist[i]; i++);
 
@@ -449,12 +498,31 @@ fc_gethnum (command, hlist)
      and makes the last command that this deals with be the last command
      the user entered before the fc.  We need to check whether the
      line was actually added (HISTIGNORE may have caused it to not be),
-     so we check hist_last_line_added. */
-  i -= 1 + hist_last_line_added;
+     so we check hist_last_line_added.  This needs to agree with the
+     calculation of last_hist in fc_builtin above. */
+  /* Even though command substitution through parse_and_execute turns off
+     remember_on_history, command substitution in a shell when set -o history
+     has been enabled (interactive or not) should use it in the last_hist
+     calculation as if it were on. */
+  rh = remember_on_history || ((subshell_environment & SUBSHELL_COMSUB) && enable_history_list);
+  last_hist = i - rh - hist_last_line_added;
+
+  if (i == last_hist && hlist[last_hist] == 0)
+    while (last_hist >= 0 && hlist[last_hist] == 0)
+      last_hist--;
+  if (last_hist < 0)
+    return (-1);
+
+  real_last = i;
+  i = last_hist;
 
   /* No specification defaults to most recent command. */
   if (command == NULL)
     return (i);
+
+  /* back up from the end to the last non-null history entry */
+  while (hlist[real_last] == 0 && real_last > 0)
+    real_last--;
 
   /* Otherwise, there is a specification.  It can be a number relative to
      the current position, or an absolute history number. */
@@ -480,7 +548,7 @@ fc_gethnum (command, hlist)
 	  return (n < 0 ? 0 : n);
 	}
       else if (n == 0)
-	return (i);
+	return ((sign == -1) ? real_last : i);
       else
 	{
 	  n -= history_base;
@@ -601,7 +669,7 @@ fc_replhist (command)
 
   if (command && *command)
     {
-      delete_last_history ();
+      bash_delete_last_history ();
       maybe_add_history (command);	/* Obeys HISTCONTROL setting. */
     }
 }

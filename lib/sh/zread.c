@@ -1,20 +1,22 @@
+/* zread - read data from file descriptor into buffer with retries */
+
 /* Copyright (C) 1999-2002 Free Software Foundation, Inc.
 
    This file is part of GNU Bash, the Bourne Again SHell.
 
-   Bash is free software; you can redistribute it and/or modify it under
-   the terms of the GNU General Public License as published by the Free
-   Software Foundation; either version 2, or (at your option) any later
-   version.
+   Bash is free software: you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation, either version 3 of the License, or
+   (at your option) any later version.
 
-   Bash is distributed in the hope that it will be useful, but WITHOUT ANY
-   WARRANTY; without even the implied warranty of MERCHANTABILITY or
-   FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   for more details.
-   
-   You should have received a copy of the GNU General Public License along
-   with Bash; see the file COPYING.  If not, write to the Free Software
-   Foundation, 59 Temple Place, Suite 330, Boston, MA 02111 USA. */
+   Bash is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with Bash.  If not, see <http://www.gnu.org/licenses/>.
+*/
 
 #include <config.h>
 
@@ -24,6 +26,7 @@
 #  include <unistd.h>
 #endif
 
+#include <signal.h>
 #include <errno.h>
 
 #if !defined (errno)
@@ -33,6 +36,9 @@ extern int errno;
 #ifndef SEEK_CUR
 #  define SEEK_CUR 1
 #endif
+
+extern void check_signals_and_traps (void);
+extern int signal_is_trapped (int);
 
 /* Read LEN bytes from FD into BUF.  Retry the read on EINTR.  Any other
    error causes the loop to break. */
@@ -44,8 +50,22 @@ zread (fd, buf, len)
 {
   ssize_t r;
 
+#if 0
+#if defined (HAVE_SIGINTERRUPT)
+  if (signal_is_trapped (SIGCHLD))
+    siginterrupt (SIGCHLD, 1);
+#endif
+#endif
+
   while ((r = read (fd, buf, len)) < 0 && errno == EINTR)
-    ;
+    check_signals_and_traps ();	/* XXX - should it be check_signals()? */
+
+#if 0 
+#if defined (HAVE_SIGINTERRUPT)
+  siginterrupt (SIGCHLD, 0);
+#endif
+#endif
+
   return r;
 }
 
@@ -58,7 +78,7 @@ zread (fd, buf, len)
 #define NUM_INTR 3
 
 ssize_t
-zreadintr (fd, buf, len)
+zreadretry (fd, buf, len)
      int fd;
      char *buf;
      size_t len;
@@ -73,12 +93,22 @@ zreadintr (fd, buf, len)
 	return r;
       if (r == -1 && errno == EINTR)
 	{
-	  if (++nintr > NUM_INTR)
+	  if (++nintr >= NUM_INTR)
 	    return -1;
 	  continue;
 	}
       return r;
     }
+}
+
+/* Call read(2) and allow it to be interrupted.  Just a stub for now. */
+ssize_t
+zreadintr (fd, buf, len)
+     int fd;
+     char *buf;
+     size_t len;
+{
+  return (read (fd, buf, len));
 }
 
 /* Read one character from FD and return it in CP.  Return values are as
@@ -111,6 +141,59 @@ zreadc (fd, cp)
   return 1;
 }
 
+/* Don't mix calls to zreadc and zreadcintr in the same function, since they
+   use the same local buffer. */
+ssize_t
+zreadcintr (fd, cp)
+     int fd;
+     char *cp;
+{
+  ssize_t nr;
+
+  if (lind == lused || lused == 0)
+    {
+      nr = zreadintr (fd, lbuf, sizeof (lbuf));
+      lind = 0;
+      if (nr <= 0)
+	{
+	  lused = 0;
+	  return nr;
+	}
+      lused = nr;
+    }
+  if (cp)
+    *cp = lbuf[lind++];
+  return 1;
+}
+
+/* Like zreadc, but read a specified number of characters at a time.  Used
+   for `read -N'. */
+ssize_t
+zreadn (fd, cp, len)
+     int fd;
+     char *cp;
+     size_t len;
+{
+  ssize_t nr;
+
+  if (lind == lused || lused == 0)
+    {
+      if (len > sizeof (lbuf))
+	len = sizeof (lbuf);
+      nr = zread (fd, lbuf, len);
+      lind = 0;
+      if (nr <= 0)
+	{
+	  lused = 0;
+	  return nr;
+	}
+      lused = nr;
+    }
+  if (cp)
+    *cp = lbuf[lind++];
+  return 1;
+}
+
 void
 zreset ()
 {
@@ -123,14 +206,13 @@ void
 zsyncfd (fd)
      int fd;
 {
-  off_t off;
-  int r;
+  off_t off, r;
 
   off = lused - lind;
   r = 0;
   if (off > 0)
     r = lseek (fd, -off, SEEK_CUR);
 
-  if (r >= 0)
+  if (r != -1)
     lused = lind = 0;
 }

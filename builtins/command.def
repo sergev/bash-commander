@@ -1,35 +1,42 @@
 This file is command.def, from which is created command.c.
 It implements the builtin "command" in Bash.
 
-Copyright (C) 1987-2004 Free Software Foundation, Inc.
+Copyright (C) 1987-2009 Free Software Foundation, Inc.
 
 This file is part of GNU Bash, the Bourne Again SHell.
 
-Bash is free software; you can redistribute it and/or modify it under
-the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
-version.
+Bash is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
 
-Bash is distributed in the hope that it will be useful, but WITHOUT ANY
-WARRANTY; without even the implied warranty of MERCHANTABILITY or
-FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-for more details.
+Bash is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
 
-You should have received a copy of the GNU General Public License along
-with Bash; see the file COPYING.  If not, write to the Free Software
-Foundation, 59 Temple Place, Suite 330, Boston, MA 02111 USA.
+You should have received a copy of the GNU General Public License
+along with Bash.  If not, see <http://www.gnu.org/licenses/>.
 
 $PRODUCES command.c
 
 $BUILTIN command
 $FUNCTION command_builtin
 $SHORT_DOC command [-pVv] command [arg ...]
-Runs COMMAND with ARGS ignoring shell functions.  If you have a shell
-function called `ls', and you wish to call the command `ls', you can
-say "command ls".  If the -p option is given, a default value is used
-for PATH that is guaranteed to find all of the standard utilities.  If
-the -V or -v option is given, a string is printed describing COMMAND.
-The -V option produces a more verbose description.
+Execute a simple command or display information about commands.
+
+Runs COMMAND with ARGS suppressing  shell function lookup, or display
+information about the specified COMMANDs.  Can be used to invoke commands
+on disk when a function with the same name exists.
+
+Options:
+  -p	use a default value for PATH that is guaranteed to find all of
+	the standard utilities
+  -v	print a description of COMMAND similar to the `type' builtin
+  -V	print a more verbose description of each COMMAND
+
+Exit Status:
+Returns exit status of COMMAND, or failure if COMMAND is not found.
 $END
 
 #include <config.h>
@@ -93,6 +100,31 @@ command_builtin (list)
   if (list == 0)
     return (EXECUTION_SUCCESS);
 
+#if defined (RESTRICTED_SHELL)
+  if (use_standard_path && restricted)
+    {
+      sh_restricted ("-p");
+      return (EXECUTION_FAILURE);
+    }
+#endif
+
+  begin_unwind_frame ("command_builtin");
+
+  if (use_standard_path)
+    {      
+      old_path = get_string_value ("PATH");
+      /* If old_path is NULL, $PATH is unset.  If so, we want to make sure
+	 it's unset after this command completes. */
+      if (old_path)
+	old_path = savestring (old_path);
+      add_unwind_protect ((Function *)restore_path, old_path);
+
+      standard_path = get_standard_path ();
+      bind_variable ("PATH", standard_path ? standard_path : "", 0);
+      stupidly_hack_special_variables ("PATH");
+      FREE (standard_path);
+    }
+
   if (verbose)
     {
       int found, any_found;
@@ -106,37 +138,15 @@ command_builtin (list)
 
 	  any_found += found;
 	}
+
+      run_unwind_frame ("command_builtin");
       return (any_found ? EXECUTION_SUCCESS : EXECUTION_FAILURE);
-    }
-
-#if defined (RESTRICTED_SHELL)
-  if (use_standard_path && restricted)
-    {
-      sh_restricted ("-p");
-      return (EXECUTION_FAILURE);
-    }
-#endif
-
-  begin_unwind_frame ("command_builtin");
-
-  /* We don't want this to be reparsed (consider command echo 'foo &'), so
-     just make a simple_command structure and call execute_command with it. */
-  if (use_standard_path)
-    {      
-      old_path = get_string_value ("PATH");
-      /* If old_path is NULL, $PATH is unset.  If so, we want to make sure
-	 it's unset after this command completes. */
-      if (old_path)
-	old_path = savestring (old_path);
-      add_unwind_protect ((Function *)restore_path, old_path);
-
-      standard_path = get_standard_path ();
-      bind_variable ("PATH", standard_path ? standard_path : "", 0);
-      FREE (standard_path);
     }
 
 #define COMMAND_BUILTIN_FLAGS (CMD_NO_FUNCTIONS | CMD_INHIBIT_EXPANSION | CMD_COMMAND_BUILTIN)
 
+  /* We don't want this to be reparsed (consider command echo 'foo &'), so
+     just make a simple_command structure and call execute_command with it. */
   command = make_bare_simple_command ();
   command->value.Simple->words = (WORD_LIST *)copy_word_list (list);
   command->value.Simple->redirects = (REDIRECT *)NULL;
@@ -175,6 +185,8 @@ restore_path (var)
     }
   else
     unbind_variable ("PATH");
+
+  stupidly_hack_special_variables ("PATH");
 }
 
 /* Return a value for PATH that is guaranteed to find all of the standard

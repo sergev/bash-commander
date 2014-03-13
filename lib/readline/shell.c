@@ -1,25 +1,25 @@
 /* shell.c -- readline utility functions that are normally provided by
 	      bash when readline is linked as part of the shell. */
 
-/* Copyright (C) 1997 Free Software Foundation, Inc.
+/* Copyright (C) 1997-2009 Free Software Foundation, Inc.
 
-   This file is part of the GNU Readline Library, a library for
-   reading lines of text with interactive input and history editing.
+   This file is part of the GNU Readline Library (Readline), a library
+   for reading lines of text with interactive input and history editing.      
 
-   The GNU Readline Library is free software; you can redistribute it
-   and/or modify it under the terms of the GNU General Public License
-   as published by the Free Software Foundation; either version 2, or
+   Readline is free software: you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation, either version 3 of the License, or
    (at your option) any later version.
 
-   The GNU Readline Library is distributed in the hope that it will be
-   useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-   of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   Readline is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
    GNU General Public License for more details.
 
-   The GNU General Public License is often shipped with GNU software, and
-   is generally kept in a file called COPYING or LICENSE.  If you do not
-   have a copy of the license, write to the Free Software Foundation,
-   59 Temple Place, Suite 330, Boston, MA 02111 USA. */
+   You should have received a copy of the GNU General Public License
+   along with Readline.  If not, see <http://www.gnu.org/licenses/>.
+*/
+
 #define READLINE_LIBRARY
 
 #if defined (HAVE_CONFIG_H)
@@ -59,6 +59,8 @@
 
 #include "rlstdc.h"
 #include "rlshell.h"
+#include "rldefs.h"
+
 #include "xmalloc.h"
 
 #if defined (HAVE_GETPWUID) && !defined (HAVE_GETPW_DECLS)
@@ -120,31 +122,27 @@ sh_single_quote (string)
 
 /* Set the environment variables LINES and COLUMNS to lines and cols,
    respectively. */
+static char setenv_buf[INT_STRLEN_BOUND (int) + 1];
+static char putenv_buf1[INT_STRLEN_BOUND (int) + 6 + 1];	/* sizeof("LINES=") == 6 */
+static char putenv_buf2[INT_STRLEN_BOUND (int) + 8 + 1];	/* sizeof("COLUMNS=") == 8 */
+
 void
 sh_set_lines_and_columns (lines, cols)
      int lines, cols;
 {
-  char *b;
-
 #if defined (HAVE_SETENV)
-  b = (char *)xmalloc (INT_STRLEN_BOUND (int) + 1);
-  sprintf (b, "%d", lines);
-  setenv ("LINES", b, 1);
-  free (b);
+  sprintf (setenv_buf, "%d", lines);
+  setenv ("LINES", setenv_buf, 1);
 
-  b = (char *)xmalloc (INT_STRLEN_BOUND (int) + 1);
-  sprintf (b, "%d", cols);
-  setenv ("COLUMNS", b, 1);
-  free (b);
+  sprintf (setenv_buf, "%d", cols);
+  setenv ("COLUMNS", setenv_buf, 1);
 #else /* !HAVE_SETENV */
 #  if defined (HAVE_PUTENV)
-  b = (char *)xmalloc (INT_STRLEN_BOUND (int) + sizeof ("LINES=") + 1);
-  sprintf (b, "LINES=%d", lines);
-  putenv (b);
+  sprintf (putenv_buf1, "LINES=%d", lines);
+  putenv (putenv_buf1);
 
-  b = (char *)xmalloc (INT_STRLEN_BOUND (int) + sizeof ("COLUMNS=") + 1);
-  sprintf (b, "COLUMNS=%d", cols);
-  putenv (b);
+  sprintf (putenv_buf2, "COLUMNS=%d", cols);
+  putenv (putenv_buf2);
 #  endif /* HAVE_PUTENV */
 #endif /* !HAVE_SETENV */
 }
@@ -159,15 +157,27 @@ sh_get_env_value (varname)
 char *
 sh_get_home_dir ()
 {
-  char *home_dir;
+  static char *home_dir = (char *)NULL;
   struct passwd *entry;
+
+  if (home_dir)
+    return (home_dir);
 
   home_dir = (char *)NULL;
 #if defined (HAVE_GETPWUID)
+#  if defined (__TANDEM)
+  entry = getpwnam (getlogin ());
+#  else
   entry = getpwuid (getuid ());
+#  endif
   if (entry)
-    home_dir = entry->pw_dir;
+    home_dir = savestring (entry->pw_dir);
 #endif
+
+#if defined (HAVE_GETPWENT)
+  endpwent ();		/* some systems need this */
+#endif
+
   return (home_dir);
 }
 

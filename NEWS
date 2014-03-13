@@ -1,3 +1,598 @@
+This is a terse description of the new features added to bash-4.3 since
+the release of bash-4.2.  As always, the manual page (doc/bash.1) is
+the place to look for complete descriptions.
+
+1.  New Features in Bash
+
+a.  The `helptopic' completion action now maps to all the help topics, not just
+    the shell builtins.
+
+b.  The `help' builtin no longer does prefix substring matching first, so
+    `help read' does not match `readonly', but will do it if exact string
+    matching fails.
+
+c.  The shell can be compiled to not display a message about processes that
+    terminate due to SIGTERM.
+
+d.  Non-interactive shells now react to the setting of checkwinsize and set
+    LINES and COLUMNS after a foreground job exits.
+
+e.  There is a new shell option, `globasciiranges', which, when set to on,
+    forces globbing range comparisons to use character ordering as if they
+    were run in the C locale.
+
+f.  There is a new shell option, `direxpand', which makes filename completion
+    expand variables in directory names in the way bash-4.1 did.
+
+g.  In Posix mode, the `command' builtin does not change whether or not a
+    builtin it shadows is treated as an assignment builtin.
+
+h.  The `return' and `exit' builtins accept negative exit status arguments.
+
+i.  The word completion code checks whether or not a filename containing a
+    shell variable expands to a directory name and appends `/' to the word
+    as appropriate.  The same code expands shell variables in command names
+    when performing command completion.
+
+j.  In Posix mode, it is now an error to attempt to define a shell function
+    with the same name as a Posix special builtin.
+
+k.  When compiled for strict Posix conformance, history expansion is disabled
+    by default.
+
+l.  The history expansion character (!) does not cause history expansion when
+    followed by the closing quote in a double-quoted string.
+
+m.  `complete' and its siblings compgen/compopt now takes a new `-o noquote'
+    option to inhibit quoting of the completions.
+
+n.  Setting HISTSIZE to a value less than zero causes the history list to be
+    unlimited (setting it 0 zero disables the history list).
+
+o.  Setting HISTFILESIZE to a value less than zero causes the history file size
+    to be unlimited (setting it to 0 causes the history file to be truncated
+    to zero size).
+
+p.  The `read' builtin now skips NUL bytes in the input.
+
+q.  There is a new `bind -X' option to print all key sequences bound to Unix
+    commands.
+
+r.  When in Posix mode, `read' is interruptible by a trapped signal.  After
+    running the trap handler, read returns 128+signal and throws away any
+    partially-read input.
+
+s.  The command completion code skips whitespace and assignment statements
+    before looking for the command name word to be completed.
+
+t.  The build process has a new mechanism for constructing separate help files
+    that better reflects the current set of compilation options.
+
+u.  The -nt and -ot options to test now work with files with nanosecond
+    timestamp resolution.
+
+v.  The shell saves the command history in any shell for which history is
+    enabled and HISTFILE is set, not just interactive shells.
+
+w.  The shell has `nameref' variables and new -n(/+n) options to declare and
+    unset to use them, and a `test -R' option to test for them.
+
+x.  The shell now allows assigning, referencing, and unsetting elements of
+    indexed arrays using negative subscripts (a[-1]=2, echo ${a[-1]}) which
+    count back from the last element of the array.
+
+y.  The {x}<word redirection feature now allows words like {array[ind]} and
+    can use variables with special meanings to the shell (e.g., BASH_XTRACEFD).
+
+z.  There is a new CHILD_MAX special shell variable; its value controls the
+    number of exited child statues the shell remembers.
+
+aa. There is a new configuration option (--enable-direxpand-default) that
+    causes the `direxpand' shell option to be enabled by default.
+
+bb. Bash does not do anything special to ensure that the file descriptor
+    assigned to X in {x}<foo remains open after the block containing it
+    completes.
+
+cc. The `wait' builtin has a new `-n' option to wait for the next child to
+    change status.
+
+dd. The `printf' %(...)T format specifier now uses the current time if no
+    argument is supplied.
+
+ee. There is a new variable, BASH_COMPAT, that controls the current shell
+    compatibility level.
+
+ff. The `popd' builtin now treats additional arguments as errors.
+
+gg. The brace expansion code now treats a failed sequence expansion as a
+    simple string and will continue to expand brace terms in the remainder
+    of the word.
+
+hh. Shells started to run process substitutions now run any trap set on EXIT.
+
+ii. The fc builtin now interprets -0 as the current command line.
+
+jj. Completing directory names containing shell variables now adds a trailing
+    slash if the expanded result is a directory.
+
+kk. `cd' has a new `-@' option to browse a file's extended attributes on
+    systems that support O_XATTR.
+
+ll. The test/[/[[ `-v variable' binary operator now understands array
+    references.
+
+2.  New Features in Readline
+
+a.  Readline is now more responsive to SIGHUP and other fatal signals when
+    reading input from the terminal or performing word completion but no
+    longer attempts to run any not-allowable functions from a signal handler
+    context.
+
+b.  There are new bindable commands to search the history for the string of
+    characters between the beginning of the line and the point
+    (history-substring-search-forward, history-substring-search-backward)
+
+c.  Readline allows quoted strings as the values of variables when setting
+    them with `set'.  As a side effect, trailing spaces and tabs are ignored
+    when setting a string variable's value.
+
+d.  The history library creates a backup of the history file when writing it
+    and restores the backup on a write error.
+
+e.  New application-settable variable: rl_filename_stat_hook: a function called
+    with a filename before using it in a call to stat(2).  Bash uses it to
+    expand shell variables so things like $HOME/Downloads have a slash
+    appended.
+
+f.  New bindable function `print-last-kbd-macro', prints the most-recently-
+    defined keyboard macro in a reusable format.
+
+g.  New user-settable variable `colored-stats', enables use of colored text
+    to denote file types when displaying possible completions (colored analog
+    of visible-stats).
+
+h.  New user-settable variable `keyseq-timout', acts as an inter-character
+    timeout when reading input or incremental search strings.
+
+i.  New application-callable function: rl_clear_history. Clears the history list
+    and frees all readline-associated private data.
+
+j.  New user-settable variable, show-mode-in-prompt, adds a characters to the
+    beginning of the prompt indicating the current editing mode.
+
+k.  New application-settable variable: rl_input_available_hook; function to be
+    called when readline detects there is data available on its input file
+    descriptor.
+
+l.  Readline calls an application-set event hook (rl_event_hook) after it gets
+    a signal while reading input (read returns -1/EINTR but readline does not
+    handle the signal immediately) to allow the application to handle or
+    otherwise note it.
+
+m.  If the user-settable variable `history-size' is set to a value less than
+    0, the history list size is unlimited.
+
+n.  New application-settable variable: rl_signal_event_hook; function that is
+    called when readline is reading terminal input and read(2) is interrupted
+    by a signal.  Currently not called for SIGHUP or SIGTERM.
+
+o.  rl_change_environment: new application-settable variable that controls
+    whether or not Readline modifies the environment (currently readline
+    modifies only LINES and COLUMNS).
+
+-------------------------------------------------------------------------------
+This is a terse description of the new features added to bash-4.2 since
+the release of bash-4.1.  As always, the manual page (doc/bash.1) is
+the place to look for complete descriptions.
+
+1.  New Features in Bash
+
+a.  `exec -a foo' now sets $0 to `foo' in an executable shell script without a
+    leading #!.
+
+b.  Subshells begun to execute command substitutions or run shell functions or
+    builtins in subshells do not reset trap strings until a new trap is
+    specified.  This allows $(trap) to display the caller's traps and the
+    trap strings to persist until a new trap is set.
+
+c.  `trap -p' will now show signals ignored at shell startup, though their
+    disposition still cannot be modified.
+
+d.  $'...', echo, and printf understand \uXXXX and \UXXXXXXXX escape sequences.
+
+e.  declare/typeset has a new `-g' option, which creates variables in the
+    global scope even when run in a shell function.
+
+f.  test/[/[[ have a new -v variable unary operator, which returns success if
+    `variable' has been set.
+
+g.  Posix parsing changes to allow `! time command' and multiple consecutive
+    instances of `!' (which toggle) and `time' (which have no cumulative
+    effect).
+
+h.  Posix change to allow `time' as a command by itself to print the elapsed
+    user, system, and real times for the shell and its children.
+
+j.  $((...)) is always parsed as an arithmetic expansion first, instead of as
+    a potential nested command substitution, as Posix requires.
+
+k.  A new FUNCNEST variable to allow the user to control the maximum shell
+    function nesting (recursive execution) level.
+
+l.  The mapfile builtin now supplies a third argument to the callback command:
+    the line about to be assigned to the supplied array index.
+
+m.  The printf builtin has a new %(fmt)T specifier, which allows time values
+    to use strftime-like formatting.
+
+n.  There is a new `compat41' shell option.
+
+o.  The cd builtin has a new Posix-mandated `-e' option.
+
+p.  Negative subscripts to indexed arrays, previously errors, now are treated
+    as offsets from the maximum assigned index + 1.
+
+q.  Negative length specifications in the ${var:offset:length} expansion,
+    previously errors, are now treated as offsets from the end of the variable.
+
+r.  Parsing change to allow `time -p --'.
+
+s.  Posix-mode parsing change to not recognize `time' as a keyword if the
+    following token begins with a `-'.  This means no more Posix-mode
+    `time -p'.  Posix interpretation 267.
+
+t.  There is a new `lastpipe' shell option that runs the last command of a
+    pipeline in the current shell context.  The lastpipe option has no
+    effect if job control is enabled.
+
+u.  History expansion no longer expands the `$!' variable expansion.
+
+v.  Posix mode shells no longer exit if a variable assignment error occurs
+    with an assignment preceding a command that is not a special builtin.
+
+w.  Non-interactive mode shells exit if -u is enabled and an attempt is made
+    to use an unset variable with the % or # expansions, the `//', `^', or
+    `,' expansions, or the parameter length expansion.
+
+x.  Posix-mode shells use the argument passed to `.' as-is if a $PATH search
+    fails, effectively searching the current directory.  Posix-2008 change.
+
+2.  New Features in Readline
+
+a.  The history library does not try to write the history filename in the
+    current directory if $HOME is unset.  This closes a potential security
+    problem if the application does not specify a history filename.
+
+b.  New bindable variable `completion-display-width' to set the number of
+    columns used when displaying completions.
+
+c.  New bindable variable `completion-case-map' to cause case-insensitive
+    completion to treat `-' and `_' as identical.
+
+d.  There are new bindable vi-mode command names to avoid readline's case-
+    insensitive matching not allowing them to be bound separately.
+
+e.  New bindable variable `menu-complete-display-prefix' causes the menu
+    completion code to display the common prefix of the possible completions
+    before cycling through the list, instead of after.
+
+-------------------------------------------------------------------------------
+This is a terse description of the new features added to bash-4.1 since
+the release of bash-4.0.  As always, the manual page (doc/bash.1) is
+the place to look for complete descriptions.
+
+1.  New Features in Bash
+
+a.  Here-documents within $(...) command substitutions may once more be
+    delimited by the closing right paren, instead of requiring a newline.
+
+b.  Bash's file status checks (executable, readable, etc.) now take file
+    system ACLs into account on file systems that support them.
+
+c.  Bash now passes environment variables with names that are not valid
+    shell variable names through into the environment passed to child
+    processes.
+
+d.  The `execute-unix-command' readline function now attempts to clear and
+    reuse the current line rather than move to a new one after the command
+    executes.
+
+e.  `printf -v' can now assign values to array indices.
+
+f.  New `complete -E' and `compopt -E' options that work on the "empty"
+    completion: completion attempted on an empty command line.
+
+g.  New complete/compgen/compopt -D option to define a `default' completion:
+    a completion to be invoked on command for which no completion has been
+    defined.  If this function returns 124, programmable completion is
+    attempted again, allowing a user to dynamically build a set of completions
+    as completion is attempted by having the default completion function
+    install individual completion functions each time it is invoked.
+
+h.  When displaying associative arrays, subscripts are now quoted.
+
+i.  Changes to dabbrev-expand to make it more `emacs-like': no space appended
+    after matches, completions are not sorted, and most recent history entries
+    are presented first.
+
+j.  The [[ and (( commands are now subject to the setting of `set -e' and the
+    ERR trap.
+
+k.  The source/. builtin now removes NUL bytes from the file before attempting
+    to parse commands.
+
+l.  There is a new configuration option (in config-top.h) that forces bash to
+    forward all history entries to syslog.
+
+m.  A new variable $BASHOPTS to export shell options settable using `shopt' to
+    child processes.
+
+n.  There is a new confgure option that forces the extglob option to be
+    enabled by default.
+
+o.  New variable $BASH_XTRACEFD; when set to an integer bash will write xtrace
+    output to that file descriptor.
+
+p.  If the optional left-hand-side of a redirection is of the form {var}, the
+    shell assigns the file descriptor used to $var or uses $var as the file
+    descriptor to move or close, depending on the redirection operator.
+
+q.  The < and > operators to the [[ conditional command now do string
+    comparison according to the current locale if the compatibility level
+    is greater than 40.
+
+r.  Programmable completion now uses the completion for `b' instead of `a'
+    when completion is attempted on a line like: a $(b c.
+
+s.  Force extglob on temporarily when parsing the pattern argument to
+    the == and != operators to the [[ command, for compatibility.
+
+t.  Changed the behavior of interrupting the wait builtin when a SIGCHLD is
+    received and a trap on SIGCHLD is set to be Posix-mode only.
+
+u.  The read builtin has a new `-N nchars' option, which reads exactly NCHARS
+    characters, ignoring delimiters like newline.
+
+v.  The mapfile/readarray builtin no longer stores the commands it invokes via
+    callbacks in the history list.
+
+w.  There is a new `compat40' shopt option.
+
+2.  New Features in Readline
+
+a.  New bindable function: menu-complete-backward.
+
+b.  In the vi insertion keymap, C-n is now bound to menu-complete by default,
+    and C-p to menu-complete-backward.
+
+c.  When in vi command mode, repeatedly hitting ESC now does nothing, even
+    when ESC introduces a bound key sequence.  This is closer to how
+    historical vi behaves.
+
+d.  New bindable function: skip-csi-sequence.  Can be used as a default to
+    consume key sequences generated by keys like Home and End without having
+    to bind all keys.
+
+e.  New application-settable function: rl_filename_rewrite_hook.  Can be used
+    to rewite or modify filenames read from the file system before they are
+    compared to the word to be completed.
+
+f.  New bindable variable: skip-completed-text, active when completing in the
+    middle of a word.  If enabled, it means that characters in the completion
+    that match characters in the remainder of the word are "skipped" rather
+    than inserted into the line.
+
+g.  The pre-readline-6.0 version of menu completion is available as
+    "old-menu-complete" for users who do not like the readline-6.0 version.
+
+h.  New bindable variable: echo-control-characters.  If enabled, and the
+    tty ECHOCTL bit is set, controls the echoing of characters corresponding
+    to keyboard-generated signals.
+
+i.  New bindable variable: enable-meta-key.  Controls whether or not readline
+    sends the smm/rmm sequences if the terminal indicates it has a meta key
+    that enables eight-bit characters.
+
+-------------------------------------------------------------------------------
+This is a terse description of the new features added to bash-4.0 since
+the release of bash-3.2.  As always, the manual page (doc/bash.1) is
+the place to look for complete descriptions.
+
+1.  New Features in Bash
+
+a.  When using substring expansion on the positional parameters, a starting
+    index of 0 now causes $0 to be prefixed to the list.
+
+b.  The `help' builtin now prints its columns with entries sorted vertically
+    rather than horizontally.
+
+c.  There is a new variable, $BASHPID, which always returns the process id of
+    the current shell.
+
+d.  There is a new `autocd' option that, when enabled, causes bash to attempt
+    to `cd' to a directory name that is supplied as the first word of a
+    simple command.
+
+e.  There is a new `checkjobs' option that causes the shell to check for and
+    report any running or stopped jobs at exit.
+
+f.  The programmable completion code exports a new COMP_TYPE variable, set to
+    a character describing the type of completion being attempted.
+
+g.  The programmable completion code exports a new COMP_KEY variable, set to
+    the character that caused the completion to be invoked (e.g., TAB).
+
+h.  If creation of a child process fails due to insufficient resources, bash
+    will try again several times before reporting failure.
+
+i.  The programmable completion code now uses the same set of characters as
+    readline when breaking the command line into a list of words.
+
+j.  The block multiplier for the ulimit -c and -f options is now 512 when in
+    Posix mode, as Posix specifies.
+
+k.  Changed the behavior of the read builtin to save any partial input received
+    in the specified variable when the read builtin times out.  This also
+    results in variables specified as arguments to read to be set to the empty
+    string when there is no input available.  When the read builtin times out,
+    it returns an exit status greater than 128.
+
+l.  The shell now has the notion of a `compatibility level', controlled by
+    new variables settable by `shopt'.  Setting this variable currently
+    restores the bash-3.1 behavior when processing quoted strings on the rhs
+    of the `=~' operator to the `[[' command.
+
+m.  The `ulimit' builtin now has new -b (socket buffer size) and -T (number
+    of threads) options.
+
+n.  The -p option to `declare' now displays all variable values and attributes
+    (or function values and attributes if used with -f).
+
+o.  There is a new `compopt' builtin that allows completion functions to modify
+    completion options for existing completions or the completion currently
+    being executed.
+
+p.  The `read' builtin has a new -i option which inserts text into the reply
+    buffer when using readline.
+
+q.  A new `-E' option to the complete builtin allows control of the default
+    behavior for completion on an empty line.
+
+r.  There is now limited support for completing command name words containing
+    globbing characters.
+
+s.  Changed format of internal help documentation for all builtins to roughly
+    follow man page format.
+
+t.  The `help' builtin now has a new -d option, to display a short description,
+    and a -m option, to print help information in a man page-like format.
+
+u.  There is a new `mapfile' builtin to populate an array with lines from a
+    given file.  The name `readarray' is a synonym.
+
+v.  If a command is not found, the shell attempts to execute a shell function
+    named `command_not_found_handle', supplying the command words as the
+    function arguments.
+
+w.  There is a new shell option: `globstar'.  When enabled, the globbing code
+    treats `**' specially -- it matches all directories (and files within
+    them, when appropriate) recursively.
+
+x.  There is a new shell option: `dirspell'.  When enabled, the filename
+    completion code performs spelling correction on directory names during
+    completion.
+
+y.  The `-t' option to the `read' builtin now supports fractional timeout
+    values.
+
+z.  Brace expansion now allows zero-padding of expanded numeric values and
+    will add the proper number of zeroes to make sure all values contain the
+    same number of digits.
+
+aa. There is a new bash-specific bindable readline function: `dabbrev-expand'.
+    It uses menu completion on a set of words taken from the history list.
+
+bb. The command assigned to a key sequence with `bind -x' now sets two new
+    variables in the environment of the executed command:  READLINE_LINE_BUFFER
+    and READLINE_POINT.  The command can change the current readline line
+    and cursor position by modifying READLINE_LINE_BUFFER and READLINE_POINT,
+    respectively.
+
+cc. There is a new &>> redirection operator, which appends the standard output
+    and standard error to the named file.
+
+dd. The parser now understands `|&' as a synonym for `2>&1 |', which redirects
+    the standard error for a command through a pipe.
+
+ee. The new `;&' case statement action list terminator causes execution to
+    continue with the action associated with the next pattern in the
+    statement rather than terminating the command.
+
+ff. The new `;;&' case statement action list terminator causes the shell to
+    test the next set of patterns after completing execution of the current
+    action, rather than terminating the command.
+
+gg. The shell understands a new variable: PROMPT_DIRTRIM.  When set to an
+    integer value greater than zero, prompt expansion of \w and \W  will
+    retain only that number of trailing pathname components and replace
+    the intervening characters with `...'.
+
+hh. There are new case-modifying word expansions: uppercase (^[^]) and
+    lowercase (,[,]).  They can work on either the first character or
+    array element, or globally.  They accept an optional shell pattern
+    that determines which characters to modify.  There is an optionally-
+    configured feature to include capitalization operators.
+
+ii. The shell provides associative array variables, with the appropriate
+    support to create, delete, assign values to, and expand them.
+
+jj. The `declare' builtin now has new -l (convert value to lowercase upon
+    assignment) and -u (convert value to uppercase upon assignment) options.
+    There is an optionally-configurable -c option to capitalize a value at
+    assignment.
+
+kk. There is a new `coproc' reserved word that specifies a coprocess: an
+    asynchronous command run with two pipes connected to the creating shell.
+    Coprocs can be named.  The input and output file descriptors and the
+    PID of the coprocess are available to the calling shell in variables
+    with coproc-specific names.
+
+ll. A value of 0 for the -t option to `read' now returns success if there is
+    input available to be read from the specified file descriptor.
+
+mm. CDPATH and GLOBIGNORE are ignored when the shell is running in privileged
+    mode.
+
+nn. New bindable readline functions shell-forward-word and shell-backward-word,
+    which move forward and backward words delimited by shell metacharacters
+    and honor shell quoting.
+
+oo.  New bindable readline functions shell-backward-kill-word and shell-kill-word
+    which kill words backward and forward, but use the same word boundaries
+    as shell-forward-word and shell-backward-word.
+
+2.  New Features in Readline
+
+a.  A new variable, rl_sort_completion_matches; allows applications to inhibit
+    match list sorting (but beware: some things don't work right if
+    applications do this).
+
+b.  A new variable, rl_completion_invoking_key; allows applications to discover
+    the key that invoked rl_complete or rl_menu_complete.
+
+c.  The functions rl_block_sigint and rl_release_sigint are now public and
+    available to calling applications who want to protect critical sections
+    (like redisplay).
+
+d.  The functions rl_save_state and rl_restore_state are now public and
+    available to calling applications; documented rest of readline's state
+    flag values.
+
+e.  A new user-settable variable, `history-size', allows setting the maximum
+    number of entries in the history list.
+
+f.  There is a new implementation of menu completion, with several improvements
+    over the old; the most notable improvement is a better `completions
+    browsing' mode.
+
+g.  The menu completion code now uses the rl_menu_completion_entry_function
+    variable, allowing applications to provide their own menu completion
+    generators.
+
+h.  There is support for replacing a prefix  of a pathname with a `...' when
+    displaying possible completions.  This is controllable by setting the
+    `completion-prefix-display-length' variable.  Matches with a common prefix
+    longer than this value have the common prefix replaced with `...'.
+
+i.  There is a new `revert-all-at-newline' variable.  If enabled, readline will
+    undo all outstanding changes to all history lines when `accept-line' is
+    executed.
+
+j.  If the kernel supports it, readline displays special characters
+    corresponding to a keyboard-generated signal when the signal is received.
+
+-------------------------------------------------------------------------------
 This is a terse description of the new features added to bash-3.2 since
 the release of bash-3.1.  As always, the manual page (doc/bash.1) is
 the place to look for complete descriptions.
@@ -1212,3 +1807,9 @@ e.  There are new library functions and variables available to application
 
 f.  The NEWLINE character (^J) is now treated as a search terminator by the
     incremental search functions.
+-------------------------------------------------------------------------------
+
+Copying and distribution of this file, with or without modification,
+are permitted in any medium without royalty provided the copyright
+notice and this notice are preserved.  This file is offered as-is,
+without any warranty.

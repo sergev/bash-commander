@@ -1,6 +1,27 @@
 /*
  * finfo - print file info
+ *
+ * Chet Ramey
+ * chet@po.cwru.edu
  */
+
+/*
+   Copyright (C) 1999-2009 Free Software Foundation, Inc.
+
+   This file is part of GNU Bash.
+   Bash is free software: you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation, either version 3 of the License, or
+   (at your option) any later version.
+
+   Bash is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with Bash.  If not, see <http://www.gnu.org/licenses/>.
+*/
 
 #ifdef HAVE_CONFIG_H
 #  include <config.h>
@@ -12,6 +33,7 @@
 #include <pwd.h>
 #include <grp.h>
 #include <errno.h>
+#include "posixtime.h"
 
 #include "bashansi.h"
 #include "shell.h"
@@ -353,7 +375,7 @@ int	flags;
 		else
 			printf("%d\n", st->st_gid);
 	} else if (flags & OPT_SIZE)
-		printf("%ld\n", st->st_size);
+		printf("%ld\n", (long) st->st_size);
 
 	return (0);
 }
@@ -375,6 +397,8 @@ finfo_builtin(list)
 }
 
 static char *finfo_doc[] = {
+  "Display information about file attributes.",
+  "",
   "Display information about each FILE.  Only single operators should",
   "be supplied.  If no options are supplied, a summary of the info",
   "available about each FILE is printed.  If FILE is of the form",

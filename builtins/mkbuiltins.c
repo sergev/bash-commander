@@ -1,23 +1,23 @@
 /* mkbuiltins.c - Create builtins.c, builtext.h, and builtdoc.c from
    a single source file called builtins.def. */
 
-/* Copyright (C) 1987-2006 Free Software Foundation, Inc.
+/* Copyright (C) 1987-2011 Free Software Foundation, Inc.
 
-This file is part of GNU Bash, the Bourne Again SHell.
+   This file is part of GNU Bash, the Bourne Again SHell.
 
-Bash is free software; you can redistribute it and/or modify it under
-the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
-version.
+   Bash is free software: you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation, either version 3 of the License, or
+   (at your option) any later version.
 
-Bash is distributed in the hope that it will be useful, but WITHOUT ANY
-WARRANTY; without even the implied warranty of MERCHANTABILITY or
-FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-for more details.
+   Bash is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
 
-You should have received a copy of the GNU General Public License along
-with Bash; see the file COPYING.  If not, write to the Free Software
-Foundation, 59 Temple Place, Suite 330, Boston, MA 02111 USA. */
+   You should have received a copy of the GNU General Public License
+   along with Bash.  If not, see <http://www.gnu.org/licenses/>.
+*/
 
 #if !defined (CROSS_COMPILING) 
 #  include <config.h>
@@ -71,6 +71,7 @@ extern char *strcpy ();
 /* Flag values that builtins can have. */
 #define BUILTIN_FLAG_SPECIAL	0x01
 #define BUILTIN_FLAG_ASSIGNMENT 0x02
+#define BUILTIN_FLAG_POSIX_BUILTIN 0x04
 
 #define BASE_INDENT	4
 
@@ -83,6 +84,10 @@ int only_documentation = 0;
 
 /* Non-zero means to not do any productions. */
 int inhibit_production = 0;
+
+/* Non-zero means to not add functions (xxx_builtin) to the members of the
+   produced `struct builtin []' */
+int inhibit_functions = 0;
 
 /* Non-zero means to produce separate help files for each builtin, named by
    the builtin name, in `./helpfiles'. */
@@ -154,9 +159,18 @@ char *assignment_builtins[] =
   (char *)NULL
 };
 
+/* The builtin commands that are special to the POSIX search order. */
+char *posix_builtins[] =
+{
+  "alias", "bg", "cd", "command", "false", "fc", "fg", "getopts", "jobs",
+  "kill", "newgrp", "pwd", "read", "true", "umask", "unalias", "wait",
+  (char *)NULL
+};
+
 /* Forward declarations. */
 static int is_special_builtin ();
 static int is_assignment_builtin ();
+static int is_posix_builtin ();
 
 #if !defined (HAVE_RENAME)
 static int rename ();
@@ -188,7 +202,7 @@ void remove_trailing_whitespace ();
 
 /* For each file mentioned on the command line, process it and
    write the information to STRUCTFILE and EXTERNFILE, while
-   creating the production file if neccessary. */
+   creating the production file if necessary. */
 int
 main (argc, argv)
      int argc;
@@ -212,6 +226,8 @@ main (argc, argv)
 	struct_filename = argv[arg_index++];
       else if (strcmp (arg, "-noproduction") == 0)
 	inhibit_production = 1;
+      else if (strcmp (arg, "-nofunctions") == 0)
+	inhibit_functions = 1;
       else if (strcmp (arg, "-document") == 0)
 	documentation_file = fopen (documentation_filename, "w");
       else if (strcmp (arg, "-D") == 0)
@@ -312,10 +328,13 @@ main (argc, argv)
 	fclose (externfile);
     }
 
+#if 0
+  /* This is now done by a different program */
   if (separate_helpfiles)
     {
       write_helpfiles (saved_builtins);
     }
+#endif
 
   if (documentation_file)
     {
@@ -380,7 +399,7 @@ copy_string_array (array)
   return (copy);
 }
 
-/* Add ELEMENT to ARRAY, growing the array if neccessary. */
+/* Add ELEMENT to ARRAY, growing the array if necessary. */
 void
 array_add (element, array)
      char *element;
@@ -509,6 +528,7 @@ extract_info (filename, structfile, externfile)
   if (nr == 0)
     {
       fprintf (stderr, "mkbuiltins: %s: skipping zero-length file\n", filename);
+      free (buffer);
       return;
     }
 
@@ -527,7 +547,7 @@ extract_info (filename, structfile, externfile)
     {
       array_add (&buffer[i], defs->lines);
 
-      while (buffer[i] != '\n' && i < file_size)
+      while (i < file_size && buffer[i] != '\n')
 	i++;
       buffer[i++] = '\0';
     }
@@ -800,6 +820,8 @@ builtin_handler (self, defs, arg)
     new->flags |= BUILTIN_FLAG_SPECIAL;
   if (is_assignment_builtin (name))
     new->flags |= BUILTIN_FLAG_ASSIGNMENT;
+  if (is_posix_builtin (name))
+    new->flags |= BUILTIN_FLAG_POSIX_BUILTIN;
 
   array_add ((char *)new, defs->builtins);
   building_builtin = 1;
@@ -1080,23 +1102,23 @@ char *structfile_header[] = {
   "/* This file is manufactured by ./mkbuiltins, and should not be",
   "   edited by hand.  See the source to mkbuiltins for details. */",
   "",
-  "/* Copyright (C) 1987-2002 Free Software Foundation, Inc.",
+  "/* Copyright (C) 1987-2012 Free Software Foundation, Inc.",
   "",
   "   This file is part of GNU Bash, the Bourne Again SHell.",
   "",
-  "   Bash is free software; you can redistribute it and/or modify it",
-  "   under the terms of the GNU General Public License as published by",
-  "   the Free Software Foundation; either version 2, or (at your option)",
-  "   any later version.",
+  "   Bash is free software: you can redistribute it and/or modify",
+  "   it under the terms of the GNU General Public License as published by",
+  "   the Free Software Foundation, either version 3 of the License, or",
+  "   (at your option) any later version.",
   "",
-  "   Bash is distributed in the hope that it will be useful, but WITHOUT",
-  "   ANY WARRANTY; without even the implied warranty of MERCHANTABILITY",
-  "   or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public",
-  "   License for more details.",
+  "   Bash is distributed in the hope that it will be useful,",
+  "   but WITHOUT ANY WARRANTY; without even the implied warranty of",
+  "   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the",
+  "   GNU General Public License for more details.",
   "",
   "   You should have received a copy of the GNU General Public License",
-  "   along with Bash; see the file COPYING.  If not, write to the Free",
-  "   Software Foundation, 59 Temple Place, Suite 330, Boston, MA 02111 USA. */",
+  "   along with Bash.  If not, see <http://www.gnu.org/licenses/>.",
+  "*/",
   "",
   "/* The list of shell builtins.  Each element is name, function, flags,",
   "   long-doc, short-doc.  The long-doc field contains a pointer to an array",
@@ -1115,7 +1137,7 @@ char *structfile_header[] = {
   };
 
 char *structfile_footer[] = {
-  "  { (char *)0x0, (sh_builtin_func_t *)0x0, 0, (char **)0x0, (char *)0x0 }",
+  "  { (char *)0x0, (sh_builtin_func_t *)0x0, 0, (char **)0x0, (char *)0x0, (char *)0x0 }",
   "};",
   "",
   "struct builtin *shell_builtins = static_shell_builtins;",
@@ -1126,7 +1148,7 @@ char *structfile_footer[] = {
   (char *)NULL
 };
 
-/* Write out any neccessary opening information for
+/* Write out any necessary opening information for
    STRUCTFILE and EXTERNFILE. */
 void
 write_file_headers (structfile, externfile)
@@ -1212,20 +1234,27 @@ write_builtins (defs, structfile, externfile)
 		{
 		  fprintf (structfile, "  { \"%s\", ", builtin->name);
 
-		  if (builtin->function)
+		  if (builtin->function && inhibit_functions == 0)
 		    fprintf (structfile, "%s, ", builtin->function);
 		  else
 		    fprintf (structfile, "(sh_builtin_func_t *)0x0, ");
 
-		  fprintf (structfile, "%s%s%s, %s_doc,\n",
+		  fprintf (structfile, "%s%s%s%s, %s_doc,\n",
 		    "BUILTIN_ENABLED | STATIC_BUILTIN",
 		    (builtin->flags & BUILTIN_FLAG_SPECIAL) ? " | SPECIAL_BUILTIN" : "",
 		    (builtin->flags & BUILTIN_FLAG_ASSIGNMENT) ? " | ASSIGNMENT_BUILTIN" : "",
+		    (builtin->flags & BUILTIN_FLAG_POSIX_BUILTIN) ? " | POSIX_BUILTIN" : "",
 		    document_name (builtin));
 
-		  fprintf
-		    (structfile, "     \"%s\", (char *)NULL },\n",
-		     builtin->shortdoc ? builtin->shortdoc : builtin->name);
+		  if (inhibit_functions)
+		    fprintf
+		      (structfile, "     N_(\"%s\"), \"%s\" },\n",
+		       builtin->shortdoc ? builtin->shortdoc : builtin->name,
+		       document_name (builtin));
+		  else
+		    fprintf
+		      (structfile, "     N_(\"%s\"), (char *)NULL },\n",
+		       builtin->shortdoc ? builtin->shortdoc : builtin->name);
 
 		}
 
@@ -1234,7 +1263,7 @@ write_builtins (defs, structfile, externfile)
 		   long documentation strings. */
 		save_builtin (builtin);
 
-	      /* Write out the matching #endif, if neccessary. */
+	      /* Write out the matching #endif, if necessary. */
 	      if (builtin->dependencies)
 		{
 		  if (externfile)
@@ -1292,6 +1321,26 @@ write_longdocs (stream, builtins)
       if (builtin->dependencies)
 	write_endifs (stream, builtin->dependencies->array);
 
+    }
+}
+
+void
+write_dummy_declarations (stream, builtins)
+     FILE *stream;
+     ARRAY *builtins;
+{
+  register int i;
+  BUILTIN_DESC *builtin;
+
+  for (i = 0; structfile_header[i]; i++)
+    fprintf (stream, "%s\n", structfile_header[i]);
+
+  for (i = 0; i < builtins->sindex; i++)
+    {
+      builtin = (BUILTIN_DESC *)builtins->array[i];
+
+      /* How to guarantee that no builtin is written more than once? */
+      fprintf (stream, "int %s () { return (0); }\n", builtin->function);
     }
 }
 
@@ -1367,7 +1416,7 @@ write_documentation (stream, documentation, indentation, flags)
 {
   register int i, j;
   register char *line;
-  int string_array, texinfo, base_indent, last_cpp, filename_p;
+  int string_array, texinfo, base_indent, filename_p;
 
   if (stream == 0)
     return;
@@ -1394,7 +1443,7 @@ write_documentation (stream, documentation, indentation, flags)
 
   base_indent = (string_array && single_longdoc_strings && filename_p == 0) ? BASE_INDENT : 0;
 
-  for (i = last_cpp = 0, texinfo = (flags & TEXINFO); line = documentation[i]; i++)
+  for (i = 0, texinfo = (flags & TEXINFO); documentation && (line = documentation[i]); i++)
     {
       /* Allow #ifdef's to be written out verbatim, but don't put them into
 	 separate help files. */
@@ -1402,11 +1451,8 @@ write_documentation (stream, documentation, indentation, flags)
 	{
 	  if (string_array && filename_p == 0 && single_longdoc_strings == 0)
 	    fprintf (stream, "%s\n", line);
-	  last_cpp = 1;
 	  continue;
 	}
-      else
-	last_cpp = 0;
 
       /* prefix with N_( for gettext */
       if (string_array && single_longdoc_strings == 0)
@@ -1559,6 +1605,13 @@ is_assignment_builtin (name)
      char *name;
 {
   return (_find_in_table (name, assignment_builtins));
+}
+
+static int
+is_posix_builtin (name)
+     char *name;
+{
+  return (_find_in_table (name, posix_builtins));
 }
 
 #if !defined (HAVE_RENAME)

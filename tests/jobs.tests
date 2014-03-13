@@ -12,6 +12,9 @@ ${THIS_SH} ./jobs3.sub
 # active
 ${THIS_SH} ./jobs4.sub
 
+# test out wait -n framework
+${THIS_SH} ./jobs5.sub
+
 jobs
 echo $?
 
@@ -115,6 +118,7 @@ exit 1 | exit 2 | exit 3
 echo $? -- ${PIPESTATUS[@]} -- ${PIPESTATUS[0]} - ${PIPESTATUS[1]} - ${PIPESTATUS[2]}
 
 sleep 300 &
+sleep300pid=$!
 sleep 350 &
 sleep 400 &
 
@@ -168,6 +172,7 @@ exec 5>&2
 exec 2>/dev/null
 
 echo killing...
+kill -n 9 $sleep300pid
 kill -n 9 %2 %3
 wait	# make sure we reap the processes while stderr is still redirected
 echo done

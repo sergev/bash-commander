@@ -6,7 +6,7 @@ Platform-Specific Configuration and Operation Notes
 	alpha running OSF/1, Linux, or NetBSD (malloc needs 8-byte alignment;
 	bash malloc has 8-byte alignment now, but I have no alphas to test on)
 
-	next running NeXT/OS
+	next running NeXT/OS; machines running Openstep
 
 	all machines running SunOS YP code: SunOS4, SunOS5, HP/UX, if you
 	have problems with username completion or tilde expansion for
@@ -20,6 +20,7 @@ Platform-Specific Configuration and Operation Notes
 	sparc SVR4, SVR4.2 (ICL reference port)
 	DG/UX
 	Cray
+	Haiku OS
 
 	NetBSD/sparc (malloc needs 8-byte alignment; bash malloc has 8-byte
 	alignment now, but I have no NetBSD machines to test on)
@@ -335,3 +336,17 @@ Platform-Specific Configuration and Operation Notes
 17.  Do NOT use bison-1.75.  It builds a non-working parser.  The most
      obvious effect is that constructs like "for i; do echo $i; done" don't
      loop over the positional parameters.
+
+18.  I have received reports that using -O2 with the MIPSpro results in a
+     binary that fails in strange ways.  Using -O1 seems to work.
+
+19.  There is special handling to ensure the shell links against static
+     versions of the included readline and history libraries on Mac OS X;
+     Apple ships inadequate dynamic libreadline and libhistory "replacements"
+     as standard libraries.
+
+20.  If you're on a system like SGI Irix, and you get an error about not
+     being able to refer to a dynamic symbol
+     (ld: non-dynamic relocations refer to dynamic symbol PC), add
+     -DNEED_EXTERN_PC to the LOCAL_CFLAGS variable in lib/readline/Makefile.in
+     and rebuild.

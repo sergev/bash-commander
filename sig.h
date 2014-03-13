@@ -1,22 +1,22 @@
 /* sig.h -- header file for signal handler definitions. */
 
-/* Copyright (C) 1994-2006 Free Software Foundation, Inc.
+/* Copyright (C) 1994-2013 Free Software Foundation, Inc.
 
    This file is part of GNU Bash, the Bourne Again SHell.
 
-   Bash is free software; you can redistribute it and/or modify it under
-   the terms of the GNU General Public License as published by the Free
-   Software Foundation; either version 2, or (at your option) any later
-   version.
+   Bash is free software: you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation, either version 3 of the License, or
+   (at your option) any later version.
 
-   Bash is distributed in the hope that it will be useful, but WITHOUT ANY
-   WARRANTY; without even the implied warranty of MERCHANTABILITY or
-   FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   for more details.
+   Bash is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
 
-   You should have received a copy of the GNU General Public License along
-   with Bash; see the file COPYING.  If not, write to the Free Software
-   Foundation, 59 Temple Place, Suite 330, Boston, MA 02111 USA. */
+   You should have received a copy of the GNU General Public License
+   along with Bash.  If not, see <http://www.gnu.org/licenses/>.
+*/
 
 /* Make sure that this is included *after* config.h! */
 
@@ -24,6 +24,10 @@
 #  define _SIG_H_
 
 #include "stdc.h"
+
+#if !defined (SIG_DFL)
+#  include <signal.h>		/* for sig_atomic_t */
+#endif
 
 #if !defined (SIGABRT) && defined (SIGIOT)
 #  define SIGABRT SIGIOT
@@ -46,9 +50,6 @@ typedef RETSIGTYPE SigHandler __P((int));
 #else
 extern SigHandler *set_signal_handler __P((int, SigHandler *));	/* in sig.c */
 #endif /* _POSIX_VERSION */
-
-/* Definitions used by the job control code. */
-#if defined (JOB_CONTROL)
 
 #if !defined (SIGCHLD) && defined (SIGCLD)
 #  define SIGCHLD SIGCLD
@@ -96,22 +97,21 @@ do { \
   sigprocmask (SIG_BLOCK, &nvar, &ovar); \
 } while (0)
 
+#define UNBLOCK_SIGNAL(ovar) sigprocmask (SIG_SETMASK, &ovar, (sigset_t *) NULL)
+
 #if defined (HAVE_POSIX_SIGNALS)
-#  define BLOCK_CHILD(nvar, ovar) \
-	BLOCK_SIGNAL (SIGCHLD, nvar, ovar)
-#  define UNBLOCK_CHILD(ovar) \
-	sigprocmask (SIG_SETMASK, &ovar, (sigset_t *) NULL)
+#  define BLOCK_CHILD(nvar, ovar) BLOCK_SIGNAL (SIGCHLD, nvar, ovar)
+#  define UNBLOCK_CHILD(ovar) UNBLOCK_SIGNAL(ovar)
 #else /* !HAVE_POSIX_SIGNALS */
 #  define BLOCK_CHILD(nvar, ovar) ovar = sigblock (sigmask (SIGCHLD))
 #  define UNBLOCK_CHILD(ovar) sigsetmask (ovar)
 #endif /* !HAVE_POSIX_SIGNALS */
 
-#endif /* JOB_CONTROL */
-
 /* Extern variables */
-extern volatile int sigwinch_received;
+extern volatile sig_atomic_t sigwinch_received;
+extern volatile sig_atomic_t sigterm_received;
 
-extern int interrupt_immediately;
+extern int interrupt_immediately;	/* no longer used */
 extern int terminate_immediately;
 
 /* Functions from sig.c. */
@@ -128,6 +128,8 @@ extern void jump_to_top_level __P((int)) __attribute__((__noreturn__));
 extern sighandler sigwinch_sighandler __P((int));
 extern void set_sigwinch_handler __P((void));
 extern void unset_sigwinch_handler __P((void));
+
+extern sighandler sigterm_sighandler __P((int));
 
 /* Functions defined in trap.c. */
 extern SigHandler *set_sigint_handler __P((void));

@@ -1,23 +1,22 @@
 /* findcmd.c -- Functions to search for commands by name. */
 
-/* Copyright (C) 1997 Free Software Foundation, Inc.
+/* Copyright (C) 1997-2012 Free Software Foundation, Inc.
 
    This file is part of GNU Bash, the Bourne Again SHell.
 
-   Bash is free software; you can redistribute it and/or modify it
-   under the terms of the GNU General Public License as published by
-   the Free Software Foundation; either version 2, or (at your option)
-   any later version.
+   Bash is free software: you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation, either version 3 of the License, or
+   (at your option) any later version.
 
-   Bash is distributed in the hope that it will be useful, but WITHOUT
-   ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-   or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
-   License for more details.
+   Bash is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
 
    You should have received a copy of the GNU General Public License
-   along with Bash; see the file COPYING.  If not, write to the
-   Free Software Foundation Inc.,
-   59 Temple Place, Suite 330, Boston, MA 02111-1307, USA. */
+   along with Bash.  If not, see <http://www.gnu.org/licenses/>.
+*/
 
 #include "config.h"
 
@@ -33,6 +32,7 @@
 #if defined (HAVE_UNISTD_H)
 #  include <unistd.h>
 #endif
+#include <errno.h>
 
 #include "bashansi.h"
 
@@ -44,7 +44,12 @@
 #include "hashcmd.h"
 #include "findcmd.h"	/* matching prototypes and declarations */
 
+#if !defined (errno)
+extern int errno;
+#endif
+
 extern int posixly_correct;
+extern int last_command_exit_value;
 
 /* Static functions defined and used in this file. */
 static char *_find_user_command_internal __P((const char *, int));
@@ -94,7 +99,18 @@ file_status (name)
 
   r = FS_EXISTS;
 
-#if defined (AFS)
+#if defined (HAVE_EACCESS)
+  /* Use eaccess(2) if we have it to take things like ACLs and other
+     file access mechanisms into account.  eaccess uses the effective
+     user and group IDs, not the real ones.  We could use sh_eaccess,
+     but we don't want any special treatment for /dev/fd. */
+  if (eaccess (name, X_OK) == 0)
+    r |= FS_EXECABLE;
+  if (eaccess (name, R_OK) == 0)
+    r |= FS_READABLE;
+
+  return r;
+#elif defined (AFS)
   /* We have to use access(2) to determine access because AFS does not
      support Unix file system semantics.  This may produce wrong
      answers for non-AFS files when ruid != euid.  I hate AFS. */
@@ -104,7 +120,7 @@ file_status (name)
     r |= FS_READABLE;
 
   return r;
-#else /* !AFS */
+#else /* !HAVE_EACCESS && !AFS */
 
   /* Find out if the file is actually executable.  By definition, the
      only other criteria is that the file has an execute bit set that
@@ -162,6 +178,10 @@ executable_file (file)
   int s;
 
   s = file_status (file);
+#if defined EISDIR
+  if (s & FS_DIRECTORY)
+    errno = EISDIR;	/* let's see if we can improve error messages */
+#endif
   return ((s & FS_EXECABLE) && ((s & FS_DIRECTORY) == 0));
 }
 
@@ -216,7 +236,7 @@ _find_user_command_internal (name, flags)
 
   /* Search for the value of PATH in both the temporary environments and
      in the regular list of variables. */
-  if (var = find_variable_internal ("PATH", 1))	/* XXX could be array? */
+  if (var = find_variable_tempenv ("PATH"))	/* XXX could be array? */
     path_list = value_cell (var);
   else
     path_list = (char *)NULL;
@@ -277,10 +297,13 @@ get_next_path_element (path_list, path_index_pointer)
 
 /* Look for PATHNAME in $PATH.  Returns either the hashed command
    corresponding to PATHNAME or the first instance of PATHNAME found
-   in $PATH.  Returns a newly-allocated string. */
+   in $PATH.  If (FLAGS&1) is non-zero, insert the instance of PATHNAME
+   found in $PATH into the command hash table.  Returns a newly-allocated
+   string. */
 char *
-search_for_command (pathname)
+search_for_command (pathname, flags)
      const char *pathname;
+     int flags;
 {
   char *hashed_file, *command;
   int temp_path, st;
@@ -290,7 +313,7 @@ search_for_command (pathname)
 
   /* If PATH is in the temporary environment for this command, don't use the
      hash table to search for the full pathname. */
-  path = find_variable_internal ("PATH", 1);
+  path = find_variable_tempenv ("PATH");
   temp_path = path && tempvar_p (path);
   if (temp_path == 0 && path)
     path = (SHELL_VAR *)NULL;
@@ -333,7 +356,7 @@ search_for_command (pathname)
 	}
       else
 	command = find_user_command (pathname);
-      if (command && hashing_enabled && temp_path == 0)
+      if (command && hashing_enabled && temp_path == 0 && (flags & 1))
 	phash_insert ((char *)pathname, command, dot_found_in_search, 1);	/* XXX fix const later */
     }
   return (command);
@@ -379,7 +402,8 @@ user_command_matches (name, flags, state)
 	  name_len = strlen (name);
 	  file_to_lose_on = (char *)NULL;
 	  dot_found_in_search = 0;
-      	  stat (".", &dotinfo);
+	  if (stat (".", &dotinfo) < 0)
+	    dotinfo.st_dev = dotinfo.st_ino = 0;	/* so same_file won't match */
 	  path_list = get_string_value ("PATH");
       	  path_index = 0;
 	}
@@ -550,7 +574,8 @@ find_user_command_in_path (name, path_list, flags)
 
   file_to_lose_on = (char *)NULL;
   name_len = strlen (name);
-  stat (".", &dotinfo);
+  if (stat (".", &dotinfo) < 0)
+    dotinfo.st_dev = dotinfo.st_ino = 0;
   path_index = 0;
 
   while (path_list[path_index])

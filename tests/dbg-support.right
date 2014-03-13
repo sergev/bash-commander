@@ -19,7 +19,7 @@ debug lineno: 24 fn1
 debug lineno: 24 fn1
 debug lineno: 25 fn1
 ./dbg-support.tests: line 25: caller: foo: invalid number
-caller: usage: caller [EXPR]
+caller: usage: caller [expr]
 debug lineno: 25 fn1
 debug lineno: 17 fn1
 debug lineno: 12 print_return_trap
@@ -48,7 +48,7 @@ debug lineno: 24 fn1
 debug lineno: 24 fn1 71 main ./dbg-support.tests
 debug lineno: 25 fn1
 ./dbg-support.tests: line 25: caller: foo: invalid number
-caller: usage: caller [EXPR]
+caller: usage: caller [expr]
 debug lineno: 25 fn1
 debug lineno: 17 fn1
 debug lineno: 12 print_return_trap
@@ -190,7 +190,7 @@ FUNCNAME[0] fn1
 79 main ./dbg-support.tests
 
 ./dbg-support.tests: line 25: caller: foo: invalid number
-caller: usage: caller [EXPR]
+caller: usage: caller [expr]
 
 debug lineno: 80 main
 fn2 here. Calling fn1...
@@ -202,7 +202,7 @@ FUNCNAME[0] fn1
 30 fn2 ./dbg-support.tests
 80 main ./dbg-support.tests
 ./dbg-support.tests: line 25: caller: foo: invalid number
-caller: usage: caller [EXPR]
+caller: usage: caller [expr]
 
 debug lineno: 81 main
 LINENO 34
@@ -351,3 +351,21 @@ debug lineno: 132 main
 debug lineno: 133 main
 debug lineno: 132 main
 debug lineno: 133 main
+debug lineno: 137 main
+main: calling f1
+f1: calling f2
+f2: calling f3
+f3: calling callstack
+deep 6
+0 z
+1 3
+2 y
+3 2
+4 x
+5 1
+FUNCNAME stack: f3 f2 f1 main
+26 f2 ./dbg-support3.sub
+f3: returning
+f2: return from f3
+f1: return from f2
+main: f1 returns

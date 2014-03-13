@@ -1,22 +1,22 @@
 /* eval.c -- reading and evaluating commands. */
 
-/* Copyright (C) 1996 Free Software Foundation, Inc.
+/* Copyright (C) 1996-2011 Free Software Foundation, Inc.
 
    This file is part of GNU Bash, the Bourne Again SHell.
 
-   Bash is free software; you can redistribute it and/or modify it
-   under the terms of the GNU General Public License as published by
-   the Free Software Foundation; either version 2, or (at your option)
-   any later version.
+   Bash is free software: you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation, either version 3 of the License, or
+   (at your option) any later version.
 
-   Bash is distributed in the hope that it will be useful, but WITHOUT
-   ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-   or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
-   License for more details.
+   Bash is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
 
    You should have received a copy of the GNU General Public License
-   along with Bash; see the file COPYING.  If not, write to the Free
-   Software Foundation, 59 Temple Place, Suite 330, Boston, MA 02111 USA. */
+   along with Bash.  If not, see <http://www.gnu.org/licenses/>.
+*/
 
 #include "config.h"
 
@@ -54,6 +54,10 @@ extern int need_here_doc;
 extern int current_command_number, current_command_line_count, line_number;
 extern int expand_aliases;
 
+#if defined (HAVE_POSIX_SIGNALS)
+extern sigset_t top_level_mask;
+#endif
+
 static void send_pwd_to_eterm __P((void));
 static sighandler alrm_catcher __P((int));
 
@@ -65,8 +69,9 @@ reader_loop ()
   int our_indirection_level;
   COMMAND * volatile current_command;
 
-  current_command = (COMMAND *)NULL;
   USE_VAR(current_command);
+
+  current_command = (COMMAND *)NULL;
 
   our_indirection_level = ++indirection_level;
 
@@ -74,12 +79,13 @@ reader_loop ()
     {
       int code;
 
-      code = setjmp (top_level);
+      code = setjmp_nosigs (top_level);
 
 #if defined (PROCESS_SUBSTITUTION)
       unlink_fifo_list ();
 #endif /* PROCESS_SUBSTITUTION */
 
+      /* XXX - why do we set this every time through the loop? */
       if (interactive_shell && signal_is_ignored (SIGINT) == 0)
 	set_signal_handler (SIGINT, sigint_sighandler);
 
@@ -89,7 +95,7 @@ reader_loop ()
 
 	  switch (code)
 	    {
-	      /* Some kind of throw to top_level has occured. */
+	      /* Some kind of throw to top_level has occurred. */
 	    case FORCE_EOF:
 	    case ERREXIT:
 	    case EXITPROG:
@@ -100,7 +106,11 @@ reader_loop ()
 	      goto exec_done;
 
 	    case DISCARD:
-	      last_command_exit_value = 1;
+	      /* Make sure the exit status is reset to a non-zero value, but
+		 leave existing non-zero values (e.g., > 128 on signal)
+		 alone. */
+	      if (last_command_exit_value == 0)
+		last_command_exit_value = EXECUTION_FAILURE;
 	      if (subshell_environment)
 		{
 		  current_command = (COMMAND *)NULL;
@@ -113,6 +123,9 @@ reader_loop ()
 		  dispose_command (current_command);
 		  current_command = (COMMAND *)NULL;
 		}
+#if defined (HAVE_POSIX_SIGNALS)
+	      sigprocmask (SIG_SETMASK, &top_level_mask, (sigset_t *)NULL);
+#endif
 	      break;
 
 	    default:
@@ -174,6 +187,7 @@ alrm_catcher(i)
      int i;
 {
   printf (_("\007timed out waiting for input: auto-logout\n"));
+  fflush (stdout);
   bash_logout ();	/* run ~/.bash_logout if this is a login shell */
   jump_to_top_level (EXITPROG);
   SIGRETURN (0);
@@ -184,12 +198,14 @@ alrm_catcher(i)
 static void
 send_pwd_to_eterm ()
 {
-  char *pwd;
+  char *pwd, *f;
 
+  f = 0;
   pwd = get_string_value ("PWD");
   if (pwd == 0)
-    pwd = get_working_directory ("eterm");
+    f = pwd = get_working_directory ("eterm");
   fprintf (stderr, "\032/%s\n", pwd);
+  free (f);
 }
 
 /* Call the YACC-generated parser and return the status of the parse.

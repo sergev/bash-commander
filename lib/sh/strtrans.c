@@ -1,24 +1,22 @@
-/* strtrans.c - Translate and untranslate strings with ANSI-C escape
-		sequences. */
+/* strtrans.c - Translate and untranslate strings with ANSI-C escape sequences. */
 
-/* Copyright (C) 2000
-   Free Software Foundation, Inc.
+/* Copyright (C) 2000-2011 Free Software Foundation, Inc.
 
    This file is part of GNU Bash, the Bourne Again SHell.
 
-   Bash is free software; you can redistribute it and/or modify it under
-   the terms of the GNU General Public License as published by the Free
-   Software Foundation; either version 2, or (at your option) any later
-   version.
+   Bash is free software: you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation, either version 3 of the License, or
+   (at your option) any later version.
 
-   Bash is distributed in the hope that it will be useful, but WITHOUT ANY
-   WARRANTY; without even the implied warranty of MERCHANTABILITY or
-   FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   for more details.
+   Bash is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
 
-   You should have received a copy of the GNU General Public License along
-   with Bash; see the file COPYING.  If not, write to the Free Software
-   Foundation, 59 Temple Place, Suite 330, Boston, MA 02111 USA. */
+   You should have received a copy of the GNU General Public License
+   along with Bash.  If not, see <http://www.gnu.org/licenses/>.
+*/
 
 #include <config.h>
 
@@ -31,6 +29,9 @@
 #include <chartypes.h>
 
 #include "shell.h"
+
+#include "shmbchar.h"
+#include "shmbutil.h"
 
 #ifdef ESC
 #undef ESC
@@ -53,11 +54,16 @@ ansicstr (string, len, flags, sawc, rlen)
 {
   int c, temp;
   char *ret, *r, *s;
+  unsigned long v;
 
   if (string == 0 || *string == '\0')
     return ((char *)NULL);
 
+#if defined (HANDLE_MULTIBYTE)
+  ret = (char *)xmalloc (4*len + 1);
+#else
   ret = (char *)xmalloc (2*len + 1);	/* 2*len for possible CTLESC */
+#endif
   for (r = ret, s = string; s && *s; )
     {
       c = *s++;
@@ -71,7 +77,7 @@ ansicstr (string, len, flags, sawc, rlen)
 	    case 'a': c = '\a'; break;
 	    case 'v': c = '\v'; break;
 #else
-	    case 'a': c = '\007'; break;
+	    case 'a': c = (int) 0x07; break;
 	    case 'v': c = (int) 0x0B; break;
 #endif
 	    case 'b': c = '\b'; break;
@@ -130,6 +136,29 @@ ansicstr (string, len, flags, sawc, rlen)
 		}
 	      c &= 0xFF;
 	      break;
+#if defined (HANDLE_MULTIBYTE)
+	    case 'u':
+	    case 'U':
+	      temp = (c == 'u') ? 4 : 8;	/* \uNNNN \UNNNNNNNN */
+	      for (v = 0; ISXDIGIT ((unsigned char)*s) && temp--; s++)
+		v = (v * 16) + HEXVALUE (*s);
+	      if (temp == ((c == 'u') ? 4 : 8))
+		{
+		  *r++ = '\\';	/* c remains unchanged */
+		  break;
+		}
+	      else if (v <= 0x7f)	/* <= 0x7f translates directly */
+		{
+		  c = v;
+		  break;
+		}
+	      else
+		{
+		  temp = u32cconv (v, r);
+		  r += temp;
+		  continue;
+		}
+#endif
 	    case '\\':
 	      break;
 	    case '\'': case '"': case '?':
@@ -145,9 +174,13 @@ ansicstr (string, len, flags, sawc, rlen)
 		    *rlen = r - ret;
 		  return ret;
 		}
+	      else if ((flags & 1) == 0 && *s == 0)
+		;		/* pass \c through */
 	      else if ((flags & 1) == 0 && (c = *s))
 		{
 		  s++;
+		  if ((flags & 2) && c == '\\' && c == *s)
+		    s++;	/* Posix requires $'\c\\' do backslash escaping */
 		  c = TOCTRL(c);
 		  break;
 		}
@@ -178,6 +211,11 @@ ansic_quote (str, flags, rlen)
   char *r, *ret, *s;
   int l, rsize;
   unsigned char c;
+  size_t clen;
+  int b;
+#if defined (HANDLE_MULTIBYTE)
+  wchar_t wc;
+#endif
 
   if (str == 0 || *str == 0)
     return ((char *)0);
@@ -189,10 +227,13 @@ ansic_quote (str, flags, rlen)
   *r++ = '$';
   *r++ = '\'';
 
-  for (s = str, l = 0; *s; s++)
+  s = str;
+
+  for (s = str; c = *s; s++)
     {
-      c = *s;
-      l = 1;		/* 1 == add backslash; 0 == no backslash */
+      b = l = 1;		/* 1 == add backslash; 0 == no backslash */
+      clen = 1;
+
       switch (c)
 	{
 	case ESC: c = 'E'; break;
@@ -200,7 +241,7 @@ ansic_quote (str, flags, rlen)
 	case '\a': c = 'a'; break;
 	case '\v': c = 'v'; break;
 #else
-	case '\007': c = 'a'; break;
+	case 0x07: c = 'a'; break;
 	case 0x0b: c = 'v'; break;
 #endif
 
@@ -213,7 +254,14 @@ ansic_quote (str, flags, rlen)
 	case '\'':
 	  break;
 	default:
+#if defined (HANDLE_MULTIBYTE)
+	  b = is_basic (c);
+	  /* XXX - clen comparison to 0 is dicey */
+	  if ((b == 0 && ((clen = mbrtowc (&wc, s, MB_CUR_MAX, 0)) < 0 || MB_INVALIDCH (clen) || iswprint (wc) == 0)) ||
+	      (b == 1 && ISPRINT (c) == 0))
+#else
 	  if (ISPRINT (c) == 0)
+#endif
 	    {
 	      *r++ = '\\';
 	      *r++ = TOCHAR ((c >> 6) & 07);
@@ -224,9 +272,20 @@ ansic_quote (str, flags, rlen)
 	  l = 0;
 	  break;
 	}
+      if (b == 0 && clen == 0)
+	break;
+
       if (l)
 	*r++ = '\\';
-      *r++ = c;
+
+      if (clen == 1)
+	*r++ = c;
+      else
+	{
+	  for (b = 0; b < (int)clen; b++)
+	    *r++ = (unsigned char)s[b];
+	  s += clen - 1;	/* -1 because of the increment above */
+	}
     }
 
   *r++ = '\'';
@@ -235,6 +294,37 @@ ansic_quote (str, flags, rlen)
     *rlen = r - ret;
   return ret;
 }
+
+#if defined (HANDLE_MULTIBYTE)
+int
+ansic_wshouldquote (string)
+     const char *string;
+{
+  const wchar_t *wcs;
+  wchar_t wcc;
+
+  wchar_t *wcstr = NULL;
+  size_t slen;
+
+
+  slen = mbstowcs (wcstr, string, 0);
+
+  if (slen == -1)
+    slen = 0;
+  wcstr = (wchar_t *)xmalloc (sizeof (wchar_t) * (slen + 1));
+  mbstowcs (wcstr, string, slen + 1);
+
+  for (wcs = wcstr; wcc = *wcs; wcs++)
+    if (iswprint(wcc) == 0)
+      {
+	free (wcstr);
+	return 1;
+      }
+
+  free (wcstr);
+  return 0;
+}
+#endif
 
 /* return 1 if we need to quote with $'...' because of non-printing chars. */
 int
@@ -248,8 +338,14 @@ ansic_shouldquote (string)
     return 0;
 
   for (s = string; c = *s; s++)
-    if (ISPRINT (c) == 0)
-      return 1;
+    {
+#if defined (HANDLE_MULTIBYTE)
+      if (is_basic (c) == 0)
+	return (ansic_wshouldquote (s));
+#endif
+      if (ISPRINT (c) == 0)
+	return 1;
+    }
 
   return 0;
 }
