@@ -744,7 +744,8 @@ _rl_dispatch_callback (cxt)
     r = _rl_subseq_result (r, cxt->oldmap, cxt->okey, (cxt->flags & KSEQ_SUBSEQ));
 
   RL_CHECK_SIGNALS ();
-  if (r == 0)			/* success! */
+  /* We only treat values < 0 specially to simulate recursion. */
+  if (r >= 0 || (r == -1 && (cxt->flags & KSEQ_SUBSEQ) == 0))	/* success! or failure! */
     {
       _rl_keyseq_chain_dispose ();
       RL_UNSETSTATE (RL_STATE_MULTIKEY);
@@ -964,7 +965,7 @@ _rl_dispatch_subseq (key, map, got_subseq)
 #if defined (VI_MODE)
   if (rl_editing_mode == vi_mode && _rl_keymap == vi_movement_keymap &&
       key != ANYOTHERKEY &&
-      rl_key_sequence_length == 1 &&	/* XXX */
+      _rl_dispatching_keymap == vi_movement_keymap &&
       _rl_vi_textmod_command (key))
     _rl_vi_set_last (key, rl_numeric_arg, rl_arg_sign);
 #endif
