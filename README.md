@@ -1,4 +1,4 @@
-Bash Commander is a fork of GNU Bourne Agail Shell.
+Bash Commander is a fork of GNU Bourne Again Shell.
 It's main feature is a visual two-panel mode, much
 like Midnight Commander and other text-mode visual shells.
 
@@ -20,7 +20,8 @@ appropriate name like commander_f1(), in case it is defined.
 When <Enter> is pressed, a function commander_start_file()
 is called with a parameter - a name of the file.
 You can define the functions in your ~/.bashrc file.
-See /usr/local/etc/bash_commander as example.
+See [/usr/local/etc/bash_commander](https://github.com/sergev/bash-commander/blob/master/examples/startup-files/bash_commander)
+as an example.
 
 When building Bach Commander from sources, make sure
 the ncurses library is installed. On Ubuntu, you can install it
