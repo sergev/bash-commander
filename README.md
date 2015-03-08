@@ -2,6 +2,8 @@ Bash Commander is a fork of GNU Bourne Agail Shell.
 It's main feature is a visual two-panel mode, much
 like Midnight Commander and other text-mode visual shells.
 
+![bashc](https://raw.githubusercontent.com/wiki/sergev/bash-commander/images/two-panels.jpg)
+
 By default, Bash Commander behaves exactly like traditional bash,
 so it's safe to install it as a system-wide /bin/sh.
 File panels are enabled only in interactive mode, when
