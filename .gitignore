@@ -3,6 +3,7 @@
 .build
 .made
 Makefile
+autom4te.cache
 bash
 bashbug
 bashversion
