@@ -87,6 +87,11 @@
 
 #define ifsname(s)	((s)[0] == 'I' && (s)[1] == 'F' && (s)[2] == 'S' && (s)[3] == '\0')
 
+#define BASHFUNC_PREFIX		"BASH_FUNC_"
+#define BASHFUNC_PREFLEN	10	/* == strlen(BASHFUNC_PREFIX */
+#define BASHFUNC_SUFFIX		"%%"
+#define BASHFUNC_SUFFLEN	2	/* == strlen(BASHFUNC_SUFFIX) */
+
 extern char **environ;
 
 /* Variables used here and defined in other files. */
@@ -283,7 +288,7 @@ static void push_temp_var __P((PTR_T));
 static void propagate_temp_var __P((PTR_T));
 static void dispose_temporary_env __P((sh_free_func_t *));     
 
-static inline char *mk_env_string __P((const char *, const char *));
+static inline char *mk_env_string __P((const char *, const char *, int));
 static char **make_env_array_from_var_list __P((SHELL_VAR **));
 static char **make_var_export_array __P((VAR_CONTEXT *));
 static char **make_func_export_array __P((void));
@@ -353,24 +358,33 @@ initialize_shell_variables (env, privmode)
 
       /* If exported function, define it now.  Don't import functions from
 	 the environment in privileged mode. */
-      if (privmode == 0 && read_but_dont_execute == 0 && STREQN ("() {", string, 4))
+      if (privmode == 0 && read_but_dont_execute == 0 && 
+          STREQN (BASHFUNC_PREFIX, name, BASHFUNC_PREFLEN) &&
+          STREQ (BASHFUNC_SUFFIX, name + char_index - BASHFUNC_SUFFLEN) &&
+	  STREQN ("() {", string, 4))
 	{
+	  size_t namelen;
+	  char *tname;		/* desired imported function name */
+
+	  namelen = char_index - BASHFUNC_PREFLEN - BASHFUNC_SUFFLEN;
+
+	  tname = name + BASHFUNC_PREFLEN;	/* start of func name */
+	  tname[namelen] = '\0';		/* now tname == func name */
+
 	  string_length = strlen (string);
-	  temp_string = (char *)xmalloc (3 + string_length + char_index);
+	  temp_string = (char *)xmalloc (namelen + string_length + 2);
 
-	  strcpy (temp_string, name);
-	  temp_string[char_index] = ' ';
-	  strcpy (temp_string + char_index + 1, string);
+	  memcpy (temp_string, tname, namelen);
+	  temp_string[namelen] = ' ';
+	  memcpy (temp_string + namelen + 1, string, string_length + 1);
 
-	  if (posixly_correct == 0 || legal_identifier (name))
-	    parse_and_execute (temp_string, name, SEVAL_NONINT|SEVAL_NOHIST);
+	  /* Don't import function names that are invalid identifiers from the
+	     environment, though we still allow them to be defined as shell
+	     variables. */
+	  if (absolute_program (tname) == 0 && (posixly_correct == 0 || legal_identifier (tname)))
+	    parse_and_execute (temp_string, tname, SEVAL_NONINT|SEVAL_NOHIST|SEVAL_FUNCDEF|SEVAL_ONECMD);
 
-	  /* Ancient backwards compatibility.  Old versions of bash exported
-	     functions like name()=() {...} */
-	  if (name[char_index - 1] == ')' && name[char_index - 2] == '(')
-	    name[char_index - 2] = '\0';
-
-	  if (temp_var = find_function (name))
+	  if (temp_var = find_function (tname))
 	    {
 	      VSETATTR (temp_var, (att_exported|att_imported));
 	      array_needs_making = 1;
@@ -383,12 +397,11 @@ initialize_shell_variables (env, privmode)
 		  array_needs_making = 1;
 		}
 	      last_command_exit_value = 1;
-	      report_error (_("error importing function definition for `%s'"), name);
+	      report_error (_("error importing function definition for `%s'"), tname);
 	    }
 
-	  /* ( */
-	  if (name[char_index - 1] == ')' && name[char_index - 2] == '\0')
-	    name[char_index - 2] = '(';		/* ) */
+	  /* Restore original suffix */
+	  tname[namelen] = BASHFUNC_SUFFIX[0];
 	}
 #if defined (ARRAY_VARS)
 #  if ARRAY_EXPORT
@@ -2204,10 +2217,7 @@ make_local_variable (name)
   /* local foo; local foo;  is a no-op. */
   old_var = find_variable (name);
   if (old_var && local_p (old_var) && old_var->context == variable_context)
-    {
-      VUNSETATTR (old_var, att_invisible);	/* XXX */
-      return (old_var);
-    }
+    return (old_var);
 
   was_tmpvar = old_var && tempvar_p (old_var);
   /* If we're making a local variable in a shell function, the temporary env
@@ -2513,10 +2523,27 @@ bind_variable_internal (name, value, table, hflags, aflags)
      HASH_TABLE *table;
      int hflags, aflags;
 {
-  char *newval;
+  char *newname, *newval;
   SHELL_VAR *entry;
+#if defined (ARRAY_VARS)
+  arrayind_t ind;
+  char *subp;
+  int sublen;
+#endif
 
+  newname = 0;
+#if defined (ARRAY_VARS)
+  if ((aflags & ASS_FROMREF) && (hflags & HASH_NOSRCH) == 0 && valid_array_reference (name))
+    {
+      newname = array_variable_name (name, &subp, &sublen);
+      if (newname == 0)
+	return (SHELL_VAR *)NULL;	/* XXX */
+      entry = hash_lookup (newname, table);
+    }
+  else
+#endif
   entry = (hflags & HASH_NOSRCH) ? (SHELL_VAR *)NULL : hash_lookup (name, table);
+
   /* Follow the nameref chain here if this is the global variables table */
   if (entry && nameref_p (entry) && (invisible_p (entry) == 0) && table == global_variables->table)
     {
@@ -2547,6 +2574,16 @@ bind_variable_internal (name, value, table, hflags, aflags)
       var_setvalue (entry, make_variable_value (entry, value, 0));
       }
     }
+#if defined (ARRAY_VARS)
+  else if (entry == 0 && newname)
+    {
+      entry = make_new_array_variable (newname);	/* indexed array by default */
+      if (entry == 0)
+	return entry;
+      ind = array_expand_index (name, subp, sublen);
+      bind_array_element (entry, ind, value, aflags);
+    }
+#endif
   else if (entry == 0)
     {
       entry = make_new_variable (name, table);
@@ -2667,7 +2704,8 @@ bind_variable (name, value, flags)
 			 normal. */
 		      if (nameref_cell (nv) == 0)
 			return (bind_variable_internal (nv->name, value, nvc->table, 0, flags));
-		      return (bind_variable_internal (nameref_cell (nv), value, nvc->table, 0, flags));
+		      /* XXX - bug here with ref=array[index] */
+		      return (bind_variable_internal (nameref_cell (nv), value, nvc->table, 0, flags|ASS_FROMREF));
 		    }
 		  else
 		    v = nv;
@@ -2970,7 +3008,7 @@ assign_in_env (word, flags)
   var->context = variable_context;	/* XXX */
 
   INVALIDATE_EXPORTSTR (var);
-  var->exportstr = mk_env_string (name, value);
+  var->exportstr = mk_env_string (name, value, 0);
 
   array_needs_making = 1;
 
@@ -3868,21 +3906,42 @@ merge_temporary_env ()
 /* **************************************************************** */
 
 static inline char *
-mk_env_string (name, value)
+mk_env_string (name, value, isfunc)
      const char *name, *value;
+     int isfunc;
 {
-  int name_len, value_len;
-  char	*p;
+  size_t name_len, value_len;
+  char	*p, *q;
 
   name_len = strlen (name);
   value_len = STRLEN (value);
-  p = (char *)xmalloc (2 + name_len + value_len);
-  strcpy (p, name);
-  p[name_len] = '=';
-  if (value && *value)
-    strcpy (p + name_len + 1, value);
+
+  /* If we are exporting a shell function, construct the encoded function
+     name. */
+  if (isfunc && value)
+    {
+      p = (char *)xmalloc (BASHFUNC_PREFLEN + name_len + BASHFUNC_SUFFLEN + value_len + 2);
+      q = p;
+      memcpy (q, BASHFUNC_PREFIX, BASHFUNC_PREFLEN);
+      q += BASHFUNC_PREFLEN;
+      memcpy (q, name, name_len);
+      q += name_len;
+      memcpy (q, BASHFUNC_SUFFIX, BASHFUNC_SUFFLEN);
+      q += BASHFUNC_SUFFLEN;
+    }
   else
-    p[name_len + 1] = '\0';
+    {
+      p = (char *)xmalloc (2 + name_len + value_len);
+      memcpy (p, name, name_len);
+      q = p + name_len;
+    }
+
+  q[0] = '=';
+  if (value && *value)
+    memcpy (q + 1, value, value_len + 1);
+  else
+    q[1] = '\0';
+
   return (p);
 }
 
@@ -3968,7 +4027,7 @@ make_env_array_from_var_list (vars)
 	  /* Gee, I'd like to get away with not using savestring() if we're
 	     using the cached exportstr... */
 	  list[list_index] = USE_EXPORTSTR ? savestring (value)
-					   : mk_env_string (var->name, value);
+					   : mk_env_string (var->name, value, function_p (var));
 
 	  if (USE_EXPORTSTR == 0)
 	    SAVE_EXPORTSTR (var, list[list_index]);

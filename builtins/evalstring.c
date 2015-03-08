@@ -308,6 +308,27 @@ parse_and_execute (string, from_file, flags)
 	    {
 	      struct fd_bitmap *bitmap;
 
+	      if (flags & SEVAL_FUNCDEF)
+		{
+		  char *x;
+
+		  /* If the command parses to something other than a straight
+		     function definition, or if we have not consumed the entire
+		     string, or if the parser has transformed the function
+		     name (as parsing will if it begins or ends with shell
+		     whitespace, for example), reject the attempt */
+		  if (command->type != cm_function_def ||
+		      ((x = parser_remaining_input ()) && *x) ||
+		      (STREQ (from_file, command->value.Function_def->name->word) == 0))
+		    {
+		      internal_warning (_("%s: ignoring function definition attempt"), from_file);
+		      should_jump_to_top_level = 0;
+		      last_result = last_command_exit_value = EX_BADUSAGE;
+		      reset_parser ();
+		      break;
+		    }
+		}
+
 	      bitmap = new_fd_bitmap (FD_BITMAP_SIZE);
 	      begin_unwind_frame ("pe_dispose");
 	      add_unwind_protect (dispose_fd_bitmap, bitmap);
@@ -368,6 +389,12 @@ parse_and_execute (string, from_file, flags)
 	      dispose_command (command);
 	      dispose_fd_bitmap (bitmap);
 	      discard_unwind_frame ("pe_dispose");
+
+	      if (flags & SEVAL_ONECMD)
+		{
+		  reset_parser ();
+		  break;
+		}
 	    }
 	}
       else

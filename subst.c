@@ -1192,12 +1192,18 @@ extract_arithmetic_subst (string, sindex)
    Start extracting at (SINDEX) as if we had just seen "<(".
    Make (SINDEX) get the position of the matching ")". */ /*))*/
 char *
-extract_process_subst (string, starter, sindex)
+extract_process_subst (string, starter, sindex, xflags)
      char *string;
      char *starter;
      int *sindex;
+     int xflags;
 {
+#if 0
   return (extract_delimited_string (string, sindex, starter, "(", ")", SX_COMMAND));
+#else
+  xflags |= (no_longjmp_on_fatal_error ? SX_NOLONGJMP : 0);
+  return (xparse_dolparen (string, string+*sindex, sindex, xflags));
+#endif
 }
 #endif /* PROCESS_SUBSTITUTION */
 
@@ -1785,7 +1791,7 @@ skip_to_delim (string, start, delims, flags)
 	  si = i + 2;
 	  if (string[si] == '\0')
 	    CQ_RETURN(si);
-	  temp = extract_process_subst (string, (c == '<') ? "<(" : ">(", &si);
+	  temp = extract_process_subst (string, (c == '<') ? "<(" : ">(", &si, 0);
 	  free (temp);		/* no SX_ALLOC here */
 	  i = si;
 	  if (string[i] == '\0')
@@ -3248,8 +3254,10 @@ cond_expand_word (w, special)
   if (w->word == 0 || w->word[0] == '\0')
     return ((char *)NULL);
 
+  expand_no_split_dollar_star = 1;
   w->flags |= W_NOSPLIT2;
   l = call_expand_word_internal (w, 0, 0, (int *)0, (int *)0);
+  expand_no_split_dollar_star = 0;
   if (l)
     {
       if (special == 0)			/* LHS */
@@ -7366,7 +7374,13 @@ parameter_brace_expand (string, indexp, quoted, pflags, quoted_dollar_atp, conta
     }
 
   if (want_indir)
-    tdesc = parameter_brace_expand_indir (name + 1, var_is_special, quoted, quoted_dollar_atp, contains_dollar_at);
+    {
+      tdesc = parameter_brace_expand_indir (name + 1, var_is_special, quoted, quoted_dollar_atp, contains_dollar_at);
+      /* Turn off the W_ARRAYIND flag because there is no way for this function
+	 to return the index we're supposed to be using. */
+      if (tdesc && tdesc->flags)
+	tdesc->flags &= ~W_ARRAYIND;
+    }
   else
     tdesc = parameter_brace_expand_word (name, var_is_special, quoted, PF_IGNUNBOUND|(pflags&(PF_NOSPLIT2|PF_ASSIGNRHS)), &ind);
 
@@ -7847,6 +7861,10 @@ param_expand (string, sindex, quoted, expanded_something,
 	 We also want to make sure that splitting is done no matter what --
 	 according to POSIX.2, this expands to a list of the positional
 	 parameters no matter what IFS is set to. */
+      /* XXX - what to do when in a context where word splitting is not
+	 performed? Even when IFS is not the default, posix seems to imply
+	 that we behave like unquoted $* ?  Maybe we should use PF_NOSPLIT2
+	 here. */
       temp = string_list_dollar_at (list, (pflags & PF_ASSIGNRHS) ? (quoted|Q_DOUBLE_QUOTES) : quoted);
 
       tflag |= W_DOLLARAT;
@@ -8029,7 +8047,9 @@ comsub:
 
 	  goto return0;
 	}
-      else if (var = find_variable_last_nameref (temp1))
+      else if (var && (invisible_p (var) || var_isset (var) == 0))
+	temp = (char *)NULL;
+      else if ((var = find_variable_last_nameref (temp1)) && var_isset (var) && invisible_p (var) == 0)
 	{
 	  temp = nameref_cell (var);
 #if defined (ARRAY_VARS)
@@ -8243,7 +8263,7 @@ add_string:
 	    else
 	      t_index = sindex + 1; /* skip past both '<' and LPAREN */
 
-	    temp1 = extract_process_subst (string, (c == '<') ? "<(" : ">(", &t_index); /*))*/
+	    temp1 = extract_process_subst (string, (c == '<') ? "<(" : ">(", &t_index, 0); /*))*/
 	    sindex = t_index;
 
 	    /* If the process substitution specification is `<()', we want to
@@ -8816,6 +8836,7 @@ finished_with_string:
   else
     {
       char *ifs_chars;
+      char *tstring;
 
       ifs_chars = (quoted_dollar_at || has_dollar_at) ? ifs_value : (char *)NULL;
 
@@ -8830,11 +8851,36 @@ finished_with_string:
 	 regardless of what else has happened to IFS since the expansion. */
       if (split_on_spaces)
 	list = list_string (istring, " ", 1);	/* XXX quoted == 1? */
+      /* If we have $@ (has_dollar_at != 0) and we are in a context where we
+	 don't want to split the result (W_NOSPLIT2), and we are not quoted,
+	 we have already separated the arguments with the first character of
+	 $IFS.  In this case, we want to return a list with a single word
+	 with the separator possibly replaced with a space (it's what other
+	 shells seem to do).
+	 quoted_dollar_at is internal to this function and is set if we are
+	 passed an argument that is unquoted (quoted == 0) but we encounter a
+	 double-quoted $@ while expanding it. */
+      else if (has_dollar_at && quoted_dollar_at == 0 && ifs_chars && quoted == 0 && (word->flags & W_NOSPLIT2))
+	{
+	  /* Only split and rejoin if we have to */
+	  if (*ifs_chars && *ifs_chars != ' ')
+	    {
+	      list = list_string (istring, *ifs_chars ? ifs_chars : " ", 1);
+	      tstring = string_list (list);
+	    }
+	  else
+	    tstring = istring;
+	  tword = make_bare_word (tstring);
+	  if (tstring != istring)
+	    free (tstring);
+	  goto set_word_flags;
+	}
       else if (has_dollar_at && ifs_chars)
 	list = list_string (istring, *ifs_chars ? ifs_chars : " ", 1);
       else
 	{
 	  tword = make_bare_word (istring);
+set_word_flags:
 	  if ((quoted & (Q_DOUBLE_QUOTES|Q_HERE_DOCUMENT)) || (quoted_state == WHOLLY_QUOTED))
 	    tword->flags |= W_QUOTED;
 	  if (word->flags & W_ASSIGNMENT)

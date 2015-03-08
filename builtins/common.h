@@ -33,6 +33,8 @@
 #define SEVAL_RESETLINE	0x010
 #define SEVAL_PARSEONLY	0x020
 #define SEVAL_NOLONGJMP 0x040
+#define SEVAL_FUNCDEF	0x080		/* only allow function definitions */
+#define SEVAL_ONECMD	0x100		/* only allow a single command */
 
 /* Flags for describe_command, shared between type.def and command.def */
 #define CDESC_ALL		0x001	/* type -a */
@@ -119,6 +121,10 @@ extern void bash_logout __P((void));
 
 /* Functions from getopts.def */
 extern void getopts_reset __P((int));
+
+/* Functions from read.def */
+extern void read_tty_cleanup __P((void));
+extern int read_tty_modified __P((void));
 
 /* Functions from set.def */
 extern int minus_o_option_value __P((char *));

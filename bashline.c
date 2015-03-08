@@ -206,6 +206,7 @@ extern int current_command_line_count, saved_command_line_count;
 extern int last_command_exit_value;
 extern int array_needs_making;
 extern int posixly_correct, no_symbolic_links;
+extern int sigalrm_seen;
 extern char *current_prompt_string, *ps1_prompt;
 extern STRING_INT_ALIST word_token_alist[];
 extern sh_builtin_func_t *last_shell_builtin, *this_shell_builtin;
@@ -4171,9 +4172,16 @@ bash_directory_completion_matches (text)
   int qc;
 
   qc = rl_dispatching ? rl_completion_quote_character : 0;  
-  dfn = bash_dequote_filename ((char *)text, qc);
+  /* If rl_completion_found_quote != 0, rl_completion_matches will call the
+     filename dequoting function, causing the directory name to be dequoted
+     twice. */
+  if (rl_dispatching && rl_completion_found_quote == 0)
+    dfn = bash_dequote_filename ((char *)text, qc);
+  else
+    dfn = (char *)text;
   m1 = rl_completion_matches (dfn, rl_filename_completion_function);
-  free (dfn);
+  if (dfn != text)
+    free (dfn);
 
   if (m1 == 0 || m1[0] == 0)
     return m1;
@@ -4205,8 +4213,9 @@ bash_event_hook ()
 {
   /* If we're going to longjmp to top_level, make sure we clean up readline.
      check_signals will call QUIT, which will eventually longjmp to top_level,
-     calling run_interrupt_trap along the way. */
-  if (interrupt_state)
+     calling run_interrupt_trap along the way.  The check for sigalrm_seen is
+     to clean up the read builtin's state. */
+  if (terminating_signal || interrupt_state || sigalrm_seen)
     rl_cleanup_after_signal ();
   bashline_reset_event_hook ();
   check_signals_and_traps ();	/* XXX */
