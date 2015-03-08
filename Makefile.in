@@ -765,7 +765,7 @@ installdirs:
 	-( cd $(PO_DIR) ; $(MAKE) $(MFLAGS) DESTDIR=$(DESTDIR) $@ )
 
 install:	.made installdirs
-	$(INSTALL_PROGRAM) $(INSTALLMODE) $(Program) $(DESTDIR)$(bindir)/$(Program)
+	$(INSTALL_PROGRAM) $(INSTALLMODE) $(Program) $(DESTDIR)$(bindir)/bashc
 	$(INSTALL_SCRIPT) $(INSTALLMODE2) bashbug $(DESTDIR)$(bindir)/bashbug
 	$(INSTALL_DATA) $(OTHER_DOCS) $(DESTDIR)$(docdir)
 	$(INSTALL_SCRIPT) -m 0644 examples/startup-files/bash_commander $(DESTDIR)$(prefix)/etc/bash_commander
