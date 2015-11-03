@@ -70,17 +70,17 @@ msgstr "%s: ikinokta imi eksik"
 #: braces.c:321
 #, c-format
 msgid "brace expansion: cannot allocate memory for %s"
-msgstr ""
+msgstr "%s icin bellek ayirilamadi"
 
 #: braces.c:413
 #, c-format
 msgid "brace expansion: failed to allocate memory for %d elements"
-msgstr ""
+msgstr "%d tane eleman için bellek ayrılamadı"
 
 #: braces.c:452
 #, c-format
 msgid "brace expansion: failed to allocate memory for `%s'"
-msgstr ""
+msgstr "'%s' için bellek ayırma işleminde hata oluştu"
 
 #: builtins/alias.def:132
 #, c-format
@@ -149,7 +149,7 @@ msgstr "çok fazla argüman"
 
 #: builtins/cd.def:338
 msgid "OLDPWD not set"
-msgstr "OLDPWD boş"
+msgstr "OLDPWD atanmamış"
 
 #: builtins/common.c:101
 #, c-format
@@ -597,7 +597,7 @@ msgstr "uyarı: %s: %s"
 #: builtins/printf.def:768
 #, c-format
 msgid "format parsing problem: %s"
-msgstr ""
+msgstr "biçin ayrıştırma hatası: %s"
 
 #: builtins/printf.def:865
 msgid "missing hex digit for \\x"
@@ -4099,6 +4099,12 @@ msgid ""
 "    Exit Status:\n"
 "    Always succeeds."
 msgstr ""
+"İşlem zamanlarını göster.\n"
+"    \n"
+"    Kabuk ve çocuk işlemleri için kullanıcı ve sistem zamanlarını göster\n"
+"    \n"
+"    Çıkış kodu:\n"
+"    Her zaman başarılı."
 
 #: builtins.c:1350
 #, fuzzy
