@@ -80,6 +80,10 @@
 #  include "pcomplete.h"
 #endif
 
+#if defined (COMMANDER)
+#  include "commander.h"
+#endif
+
 /* These should agree with the defines for emacs_mode and vi_mode in
    rldefs.h, even though that's not a public readline header file. */
 #ifndef EMACS_EDITING_MODE

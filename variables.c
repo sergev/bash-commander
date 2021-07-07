@@ -81,6 +81,10 @@
 #  include "pcomplete.h"
 #endif
 
+#if defined (COMMANDER)
+#  include "commander.h"
+#endif
+
 #define VARIABLES_HASH_BUCKETS	1024	/* must be power of two */
 #define FUNCTIONS_HASH_BUCKETS	512
 #define TEMPENV_HASH_BUCKETS	4	/* must be power of two */
@@ -1049,6 +1053,9 @@ sh_set_lines_and_columns (lines, cols)
   /* If we are currently assigning to LINES or COLUMNS, don't do anything. */
   if (winsize_assignment)
     return;
+#if defined (COMMANDER)
+  cmdr_set_lines_and_columns (lines, cols);
+#endif
 #endif
 
   v = inttostr (lines, val, sizeof (val));
@@ -5814,6 +5821,9 @@ static struct name_and_function special_vars[] = {
 #  if defined (STRICT_POSIX)
   { "COLUMNS", sv_winsize },
 #  endif
+#  if defined (COMMANDER)
+  { "COMMANDER", sv_commander },
+#  endif
   { "COMP_WORDBREAKS", sv_comp_wordbreaks },
 #endif
 
@@ -6046,6 +6056,9 @@ sv_terminal (name)
 {
   if (interactive_shell && no_line_editing == 0)
     rl_reset_terminal (get_string_value ("TERM"));
+#if defined (COMMANDER)
+  cmdr_reset_terminal ();
+#endif
 }
 
 void
@@ -6093,6 +6106,25 @@ sv_winsize (name)
     }
 }
 #endif /* STRICT_POSIX */
+
+#if defined (COMMANDER)
+/* Configure commander mode and colors. */
+void
+sv_commander (name)
+     char *name;
+{
+  SHELL_VAR *v;
+
+  if (interactive_shell == 0)
+    return;
+
+  v = find_variable (name);
+  if (v)
+    cmdr_init (value_cell (v));
+  else
+    cmdr_disable ();
+}
+#endif /* COMMANDER */
 #endif /* READLINE */
 
 /* Update the value of HOME in the export environment so tilde expansion will

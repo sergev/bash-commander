@@ -229,7 +229,7 @@ typedef struct _vlist {
 /* Special value for nameref with invalid value for creation or assignment */
 extern SHELL_VAR nameref_invalid_value;
 #define INVALID_NAMEREF_VALUE	(void *)&nameref_invalid_value
-	
+
 /* Stuff for hacking variables. */
 typedef int sh_var_map_func_t PARAMS((SHELL_VAR *));
 
@@ -297,7 +297,7 @@ extern void bind_function_def PARAMS((const char *, FUNCTION_DEF *, int));
 
 extern SHELL_VAR **map_over PARAMS((sh_var_map_func_t *, VAR_CONTEXT *));
 SHELL_VAR **map_over_funcs PARAMS((sh_var_map_func_t *));
-     
+
 extern SHELL_VAR **all_shell_variables PARAMS((void));
 extern SHELL_VAR **all_shell_functions PARAMS((void));
 extern SHELL_VAR **all_visible_variables PARAMS((void));
@@ -435,6 +435,9 @@ extern void sv_comp_wordbreaks PARAMS((char *));
 extern void sv_terminal PARAMS((char *));
 extern void sv_hostfile PARAMS((char *));
 extern void sv_winsize PARAMS((char *));
+#if defined (COMMANDER)
+extern void sv_commander PARAMS((char *));
+#endif
 #endif
 
 #if defined (__CYGWIN__)

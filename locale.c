@@ -49,6 +49,10 @@ int locale_shiftstates = 0;
 
 int singlequote_translations = 0;	/* single-quote output of $"..." */
 
+#if defined (COMMANDER)
+#  include "commander.h"
+#endif
+
 extern int dump_translatable_strings, dump_po_strings;
 
 /* The current locale when the program begins */
@@ -287,7 +291,7 @@ set_locale_var (var, value)
 #  endif /* LC_TIME */
     }
 #endif /* HAVE_SETLOCALE */
-  
+
   if (x == 0)
     {
       if (errno == 0)
@@ -295,6 +299,9 @@ set_locale_var (var, value)
       else
 	internal_warning(_("setlocale: %s: cannot change locale (%s): %s"), var, get_locale_var (var), strerror (errno));
     }
+#if defined (COMMANDER)
+  cmdr_reset_graphics ();
+#endif
 
   return (x != 0);
 }
@@ -386,7 +393,7 @@ reset_locale_vars ()
   t = setlocale (LC_TIME, get_locale_var ("LC_TIME"));
 #  endif
 
-  locale_setblanks ();  
+  locale_setblanks ();
   locale_mb_cur_max = MB_CUR_MAX;
   if (x)
     locale_utf8locale = locale_isutf8 (x);
@@ -479,7 +486,7 @@ mk_msgstr (string, foundnlp)
       else if (*s == '\n')
 	len += 5;
     }
-  
+
   r = result = (char *)xmalloc (len + 3);
   *r++ = '"';
 

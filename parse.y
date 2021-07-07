@@ -74,6 +74,10 @@
 extern int cleanup_dead_jobs PARAMS((void));
 #endif /* JOB_CONTROL */
 
+#if defined (COMMANDER)
+#  include "commander.h"
+#endif /* COMMANDER */
+
 #if defined (ALIAS)
 #  include "alias.h"
 #else
@@ -2464,6 +2468,21 @@ shell_getc (remove_quoted_newline)
       shell_input_line_len = i;		/* == strlen (shell_input_line) */
 
       set_line_mbstate ();
+
+#if defined (COMMANDER)
+      if (interactive_shell && SHOULD_PROMPT() &&
+          no_line_editing == 0 && current_readline_line)
+        {
+          if ((shell_input_line && shell_input_line[0]) ||
+              shell_input_line_terminator == EOF)
+            cmdr_activate (0);
+          else
+            cmdr_activate (1);
+
+          if (token_to_read == '\n')
+            token_to_read = 0;
+        }
+#endif
 
 #if defined (HISTORY)
       if (remember_on_history && shell_input_line && shell_input_line[0])

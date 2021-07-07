@@ -54,7 +54,7 @@ AC_CANONICAL_BUILD
 dnl configure defaults
 opt_bash_malloc=yes
 opt_afs=no
-opt_curses=no
+opt_curses=yes
 opt_with_installed_readline=no
 
 #htmldir=

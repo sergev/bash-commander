@@ -58,6 +58,10 @@
 extern void initialize_siglist PARAMS((void));
 extern void set_original_signal PARAMS((int, SigHandler *));
 
+#if defined (COMMANDER)
+#  include "commander.h"
+#endif
+
 #if !defined (JOB_CONTROL)
 extern void initialize_job_signals PARAMS((void));
 #endif
@@ -439,7 +443,7 @@ throw_to_top_level ()
 
   /* This needs to stay because jobs.c:make_child() uses it without resetting
      the signal mask. */
-  restore_sigmask ();  
+  restore_sigmask ();
 
   reset_parser ();
 
@@ -447,6 +451,10 @@ throw_to_top_level ()
   if (interactive)
     bashline_reset ();
 #endif /* READLINE */
+
+#if defined (COMMANDER)
+  cmdr_activate (-1);
+#endif
 
 #if defined (PROCESS_SUBSTITUTION)
   unlink_fifo_list ();
