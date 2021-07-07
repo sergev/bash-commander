@@ -39,6 +39,8 @@
 #  include "ansi_stdlib.h"
 #endif /* HAVE_STDLIB_H */
 
+#define HAVE_LOCALE_H
+#define HAVE_SETLOCALE
 #if defined (HAVE_LOCALE_H)
 #  include <locale.h>
 #endif

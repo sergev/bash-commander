@@ -73,7 +73,9 @@ extern char *strchr (), *strrchr ();
 Keymap rl_binding_keymap;
 
 static int _rl_skip_to_delim PARAMS((char *, int, int));
-
+#include <stdarg.h>
+#define PREFER_STDARG 1
+#define USE_VARARGS 1
 #if defined (USE_VARARGS) && defined (PREFER_STDARG)
 static void _rl_init_file_error (const char *, ...)  __attribute__((__format__ (printf, 1, 2)));
 #else
@@ -1048,7 +1050,7 @@ _rl_read_init_file (const char *filename, int include_level)
   currently_reading_init_file = 0;
   return (0);
 }
-
+#define PREFER_STDARG 1
 static void
 #if defined (PREFER_STDARG)
 _rl_init_file_error (const char *format, ...)

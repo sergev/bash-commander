@@ -38,7 +38,7 @@
 
 /* Try this without testing __STDC__ for the time being. */
 #if defined (HAVE_STDARG_H)
-#  define PREFER_STDARG
+#  define PREFER_STDARG 1
 #  define USE_VARARGS
 #else
 #  if defined (HAVE_VARARGS_H)

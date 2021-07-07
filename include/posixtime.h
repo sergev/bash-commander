@@ -46,6 +46,7 @@
 #  endif /* !CLK_TCK */
 #endif /* !HAVE_SYSCONF && !_SC_CLK_TCK */
 
+#define HAVE_TIMEVAL 1
 #if !HAVE_TIMEVAL
 struct timeval
 {

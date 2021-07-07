@@ -28,6 +28,7 @@
 
 #include "bashtypes.h"
 
+#define HAVE_UNAME 1
 #if defined (HAVE_UNAME)
 #  include <sys/utsname.h>
 #else
