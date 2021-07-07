@@ -47,6 +47,10 @@ int locale_utf8locale;
 int locale_mb_cur_max;	/* value of MB_CUR_MAX for current locale (LC_CTYPE) */
 int locale_shiftstates = 0;
 
+#if defined (COMMANDER)
+#  include "commander.h"
+#endif
+
 extern int dump_translatable_strings, dump_po_strings;
 
 /* The current locale when the program begins */
@@ -293,6 +297,9 @@ set_locale_var (var, value)
       else
 	internal_warning(_("setlocale: %s: cannot change locale (%s): %s"), var, get_locale_var (var), strerror (errno));
     }
+#if defined (COMMANDER)
+  cmdr_reset_graphics ();
+#endif
 
   return (x != 0);
 }

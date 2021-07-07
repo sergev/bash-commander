@@ -55,6 +55,24 @@
 #  include "bashhist.h"
 #endif
 
+#if defined (COMMANDER)
+#  include "commander.h"
+#endif
+
+extern volatile int last_command_exit_value;
+extern int last_command_exit_signal;
+extern int return_catch_flag;
+extern int loop_level, continuing, breaking, funcnest;
+extern int executing_list;
+extern int comsub_ignore_return;
+extern int parse_and_execute_level, shell_initialized;
+#if defined (HISTORY)
+extern int history_lines_this_session;
+#endif
+extern int no_line_editing;
+extern int wait_signal_received;
+extern sh_builtin_func_t *this_shell_builtin;
+
 extern void initialize_siglist ();
 
 #if !defined (JOB_CONTROL)
@@ -438,6 +456,10 @@ throw_to_top_level ()
   if (interactive)
     bashline_reset ();
 #endif /* READLINE */
+
+#if defined (COMMANDER)
+  cmdr_activate (-1);
+#endif
 
 #if defined (PROCESS_SUBSTITUTION)
   unlink_fifo_list ();
