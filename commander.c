@@ -1757,7 +1757,39 @@ nothing_to_run:
   fputs ("\r\n", rl_outstream);
 
   /* Execute command line. */
+#if 1
+  int rrs = rl_readline_state;
+
+#define RL_BOOLEAN_VARIABLE_VALUE(s)    ((s)[0] == 'o' && (s)[1] == 'n' && (s)[2] == '\0')
+  char *metaval = rl_variable_value ("input-meta");
+  int metaflag = RL_BOOLEAN_VARIABLE_VALUE (metaval);
+
+  if (rl_deprep_term_function)
+    (*rl_deprep_term_function) ();
+  rl_clear_signals ();
+
+  sh_parser_state_t ps;
+  save_parser_state (&ps);
+#endif
   parse_and_execute (savestring (cmd->value), "commander", SEVAL_NONINT);
+#if 1
+  restore_parser_state (&ps);
+
+  /* if some kind of reset_parser was called, undo it. */
+  reset_readahead_token ();
+
+  if (rl_prep_term_function)
+    (*rl_prep_term_function) (metaflag);
+  rl_set_signals ();
+
+  /* Now erase the contents of the current line and undo the effects of the
+     rl_accept_line() above.  We don't even want to make the text we just
+     executed available for undoing. */
+  rl_line_buffer[0] = '\0';	/* XXX */
+  rl_point = rl_end = 0;
+  rl_done = 0;
+  rl_readline_state = rrs;
+#endif
   reset_parser ();
   unbind_variable ("COMMANDER_LINE");
 
