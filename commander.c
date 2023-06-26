@@ -49,6 +49,9 @@ extern int _rl_last_c_pos, _rl_last_v_pos;
 /* Number of lines currently on screen minus 1. */
 extern int _rl_vis_botlin;
 
+/* Bracketed paste. */
+extern int _rl_enable_bracketed_paste;
+
 /* Get the current cursor column number. */
 int _rl_cursor_col ();
 
@@ -1794,6 +1797,7 @@ cmdr_set_lines_and_columns (lines, cols)
     {
       /* Too small window, use line mode. */
       cmdr_visual_mode = 0;
+      _rl_enable_bracketed_paste = 1;
       rl_set_keymap (cmdr_line_keymap);
       fputs (cmdr_term_clear, rl_outstream);
       rl_forced_update_display ();
@@ -1830,6 +1834,7 @@ cmdr_set_visual_mode (enable_visual)
 	  cmdr_columns < 50 || cmdr_columns > 1000)
 	  return;
       cmdr_visual_mode = 1;
+      _rl_enable_bracketed_paste = 0;
       rl_set_keymap (cmdr_visual_keymap);
 
       /* Reinit on window resize. */
@@ -1845,6 +1850,7 @@ cmdr_set_visual_mode (enable_visual)
 
   /* Disable visual mode. */
   cmdr_visual_mode = 0;
+  _rl_enable_bracketed_paste = 1;
   rl_set_keymap (cmdr_line_keymap);
 }
 
@@ -2119,6 +2125,7 @@ cmdr_init (params)
   if (cmdr_line_keymap)
     return 0;
   cmdr_visual_mode = 0;
+  _rl_enable_bracketed_paste = 1;
 
   /* Line mode keymap. */
   cmdr_line_keymap = rl_get_keymap();
@@ -2201,6 +2208,7 @@ cmdr_disable ()
   cmdr_visual_keymap = 0;
   cmdr_line_keymap = 0;
   cmdr_visual_mode = 0;
+  _rl_enable_bracketed_paste = 1;
 
   if (cmdr_panel[0])
     {
