@@ -14,6 +14,7 @@
 *.dSYM
 .build
 .made
+build
 
 config.h
 config.status
