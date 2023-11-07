@@ -16,7 +16,7 @@
 .made
 build
 
-config.h
+# config.h -- need this file for Demos Commander
 config.status
 config.cache
 config.log

@@ -3,7 +3,11 @@ cmake_minimum_required(VERSION 3.15)
 project(bashc VERSION 4.2 DESCRIPTION "Bash Commander")
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 17)
-add_compile_options(-Wall -Werror -Wshadow)
+#TODO: add_compile_options(-Wall -Werror -Wshadow)
+
+add_definitions(-DCONF_MACHTYPE="${CMAKE_SYSTEM_PROCESSOR}-${CMAKE_C_COMPILER_ID}-${CMAKE_SYSTEM}")
+add_definitions(-DLOCALEDIR="/usr/local/share/locale")
+add_definitions(-DPACKAGE="bashc")
 
 add_executable(${PROJECT_NAME}
     ./jobs.c
@@ -25,64 +29,12 @@ add_executable(${PROJECT_NAME}
     ./pcomplete.c
     ./general.c
     ./flags.c
-    ./mksignames.c
     ./test.c
     ./subst.c
     ./braces.c
-    ./buildsignames.c
     ./findcmd.c
     ./expr.c
     ./assoc.c
-    ./buildversion.c
-    ./builtins/jobs.c
-    ./builtins/type.c
-    ./builtins/help.c
-    ./builtins/trap.c
-    ./builtins/declare.c
-    ./builtins/umask.c
-    ./builtins/complete.c
-    ./builtins/ulimit.c
-    ./builtins/cd.c
-    ./builtins/fg_bg.c
-    ./builtins/alias.c
-    ./builtins/builtin.c
-    ./builtins/bashgetopt.c
-    ./builtins/caller.c
-    ./builtins/kill.c
-    ./builtins/let.c
-    ./builtins/pushd.c
-    ./builtins/times.c
-    ./builtins/enable.c
-    ./builtins/wait.c
-    ./builtins/colon.c
-    ./builtins/fc.c
-    ./builtins/evalfile.c
-    ./builtins/source.c
-    ./builtins/test.c
-    ./builtins/return.c
-    ./builtins/echo.c
-    ./builtins/getopt.c
-    ./builtins/getopts.c
-    ./builtins/shift.c
-    ./builtins/builtins.c
-    ./builtins/setattr.c
-    ./builtins/printf.c
-    ./builtins/history.c
-    ./builtins/common.c
-    ./builtins/eval.c
-    ./builtins/exec.c
-    ./builtins/exit.c
-    ./builtins/break.c
-    ./builtins/command.c
-    ./builtins/evalstring.c
-    ./builtins/mkbuiltins.c
-    ./builtins/bind.c
-    ./builtins/suspend.c
-    ./builtins/read.c
-    ./builtins/hash.c
-    ./builtins/mapfile.c
-    ./builtins/set.c
-    ./builtins/shopt.c
     ./bashhist.c
     ./arrayfunc.c
     ./list.c
@@ -199,7 +151,8 @@ add_executable(${PROJECT_NAME}
     ./bracecomp.c
     ./redir.c
 )
-target_link_libraries(${PROJECT_NAME} ncurses)
+target_link_libraries(${PROJECT_NAME} builtins ncurses) # TODO: readline history sh glob tilde
+include_directories(. include lib)
 
 install(TARGETS ${PROJECT_NAME}
     DESTINATION bin
@@ -213,3 +166,28 @@ install(TARGETS ${PROJECT_NAME}
 #install(FILES help/e.general help/e.edit help/e.view help/e.hexview
 #    DESTINATION lib/deco/help
 #)
+
+add_executable(mksignames
+    support/mksignames.c
+    support/signames.c
+)
+#target_include_directories(mksignames PRIVATE .)
+
+add_executable(bashversion
+    support/bashversion.c
+    version.c
+)
+#target_include_directories(bashversion PRIVATE . include)
+
+#./builtins/libbuiltins.a
+#./lib/readline/libreadline.a
+#./lib/readline/libhistory.a
+#./lib/sh/libsh.a
+#./lib/glob/libglob.a
+#./lib/tilde/libtilde.a
+
+add_subdirectory(builtins)
+#add_subdirectory(lib/readline)
+#add_subdirectory(lib/sh)
+#add_subdirectory(lib/glob)
+#add_subdirectory(lib/tilde)
