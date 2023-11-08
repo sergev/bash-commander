@@ -1,11 +1,14 @@
 cmake_minimum_required(VERSION 3.15)
 
+# Version of Bash Commander must match version of GNU Bash
+# which we clone from savannah.gnu.org.
 project(bashc VERSION 5.2 DESCRIPTION "Bash Commander")
 set(CMAKE_C_STANDARD 11)
-set(CMAKE_CXX_STANDARD 17)
+
+# Mask out most issues in Bash source code.
 add_compile_options(-Wno-deprecated-non-prototype -Wno-parentheses -Wno-incompatible-pointer-types-discards-qualifiers)
 
-# Get git revision count
+# Get git revision count.
 execute_process(
     COMMAND git rev-list HEAD --count
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
@@ -13,6 +16,7 @@ execute_process(
     OUTPUT_VARIABLE GIT_REVCOUNT
 )
 
+# Configure parameters required by Bash.
 add_definitions(-DCONF_MACHTYPE="${CMAKE_SYSTEM_PROCESSOR}-${CMAKE_C_COMPILER_ID}-${CMAKE_SYSTEM}")
 add_definitions(-DCONF_HOSTTYPE="${CMAKE_SYSTEM_PROCESSOR}")
 add_definitions(-DCONF_VENDOR="${CMAKE_C_COMPILER_ID}")
@@ -26,19 +30,47 @@ add_definitions(-DHAVE_CONFIG_H)
 add_definitions(-DSHELL)
 add_definitions(-DCOMMANDER)
 
-find_package(BISON 3.0 REQUIRED)
-bison_target(parse parse.y parse.c)
-
-set(CURSES_NEED_NCURSES TRUE)
-#set(CURSES_NEED_WIDE TRUE)
-find_package(Curses REQUIRED)
-
 include(CheckSymbolExists)
 check_symbol_exists(arc4random "stdlib.h" HAVE_ARC4RANDOM)
 if(HAVE_ARC4RANDOM)
     add_definitions(-DHAVE_ARC4RANDOM)
 endif()
 
+# Need Bison for grammar.
+find_package(BISON 3.0 REQUIRED)
+bison_target(parse parse.y parse.c)
+
+# Need ncurses.
+set(CURSES_NEED_NCURSES TRUE)
+#set(CURSES_NEED_WIDE TRUE)
+find_package(Curses REQUIRED)
+
+# Create empty version.h - it's required by Bash sources.
+file(CONFIGURE
+    OUTPUT version.h
+    CONTENT "/* This file in unused in Bash Commander. */"
+)
+
+# Create signames.h - a list of signal names.
+add_executable(mksignames
+    bash/support/mksignames.c
+    bash/support/signames.c
+)
+add_custom_command(
+    OUTPUT signames.h
+    COMMAND ./mksignames signames.h
+    DEPENDS mksignames
+)
+
+# Create syntax.c - helper tables for scanner.
+add_executable(mksyntax bash/mksyntax.c)
+add_custom_command(
+    OUTPUT syntax.c
+    COMMAND ./mksyntax -o syntax.c
+    DEPENDS mksyntax ${CMAKE_CURRENT_SOURCE_DIR}/bash/syntax.h
+)
+
+# Build bashc executable.
 add_executable(${PROJECT_NAME}
     bash/jobs.c
     bash/error.c
@@ -94,6 +126,14 @@ include_directories(
     ${CMAKE_BINARY_DIR}
 )
 
+# Build required libraries.
+add_subdirectory(builtins)
+add_subdirectory(lib/readline)
+add_subdirectory(lib/sh)
+add_subdirectory(lib/glob)
+add_subdirectory(lib/tilde)
+
+# Install bashc and scripts.
 install(TARGETS ${PROJECT_NAME}
     DESTINATION bin
 )
@@ -101,34 +141,4 @@ install(FILES
     bash_commander
     bash_dialog
     DESTINATION etc
-)
-
-add_executable(mksignames
-    bash/support/mksignames.c
-    bash/support/signames.c
-    version.h
-)
-add_executable(mksyntax bash/mksyntax.c)
-
-add_subdirectory(builtins)
-add_subdirectory(lib/readline)
-add_subdirectory(lib/sh)
-add_subdirectory(lib/glob)
-add_subdirectory(lib/tilde)
-
-file(CONFIGURE
-    OUTPUT version.h
-    CONTENT "/* This file in unused in Bash Commander. */"
-)
-
-add_custom_command(
-    OUTPUT signames.h
-    COMMAND ./mksignames signames.h
-    DEPENDS mksignames
-)
-
-add_custom_command(
-    OUTPUT syntax.c
-    COMMAND ./mksyntax -o syntax.c
-    DEPENDS mksyntax ${CMAKE_CURRENT_SOURCE_DIR}/bash/syntax.h
 )
