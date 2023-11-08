@@ -4,10 +4,18 @@ project(bashc VERSION 4.2 DESCRIPTION "Bash Commander")
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 17)
 #TODO: add_compile_options(-Wall -Werror -Wshadow)
+add_compile_options(-Wno-deprecated-non-prototype -Wno-parentheses)
 
+add_definitions(-DMACOSX)           # TODO: obtain from CMake
 add_definitions(-DCONF_MACHTYPE="${CMAKE_SYSTEM_PROCESSOR}-${CMAKE_C_COMPILER_ID}-${CMAKE_SYSTEM}")
+add_definitions(-DCONF_HOSTTYPE="${CMAKE_SYSTEM_PROCESSOR}")
+add_definitions(-DCONF_VENDOR="${CMAKE_C_COMPILER_ID}")
+add_definitions(-DCONF_OSTYPE="${CMAKE_SYSTEM}")
 add_definitions(-DLOCALEDIR="/usr/local/share/locale")
 add_definitions(-DPACKAGE="bashc")
+add_definitions(-DHAVE_CONFIG_H)
+add_definitions(-DSHELL)
+#add_definitions(-DCOMMANDER)       # TODO: enable
 
 add_executable(${PROJECT_NAME}
     ./jobs.c
@@ -80,67 +88,6 @@ add_executable(${PROJECT_NAME}
     ./lib/readline/callback.c
     ./lib/readline/savestring.c
     ./lib/readline/parens.c
-    ./lib/sh/timers.c
-    ./lib/sh/snprintf.c
-    ./lib/sh/zgetline.c
-    ./lib/sh/zwrite.c
-    ./lib/sh/wcsnwidth.c
-    ./lib/sh/winsize.c
-    ./lib/sh/tmpfile.c
-    ./lib/sh/makepath.c
-    ./lib/sh/fmtullong.c
-    ./lib/sh/strtrans.c
-    ./lib/sh/clktck.c
-    ./lib/sh/spell.c
-    ./lib/sh/oslib.c
-    ./lib/sh/shtty.c
-    ./lib/sh/stringvec.c
-    ./lib/sh/mbschr.c
-    ./lib/sh/shquote.c
-    ./lib/sh/stringlist.c
-    ./lib/sh/zread.c
-    ./lib/sh/netconn.c
-    ./lib/sh/mbscasecmp.c
-    ./lib/sh/uconvert.c
-    ./lib/sh/strvis.c
-    ./lib/sh/ufuncs.c
-    ./lib/sh/zmapfd.c
-    ./lib/sh/fnxform.c
-    ./lib/sh/eaccess.c
-    ./lib/sh/unicode.c
-    ./lib/sh/timeval.c
-    ./lib/sh/pathcanon.c
-    ./lib/sh/strchrnul.c
-    ./lib/sh/fmtumax.c
-    ./lib/sh/zcatfd.c
-    ./lib/sh/mktime.c
-    ./lib/sh/shmbchar.c
-    ./lib/sh/wcsdup.c
-    ./lib/sh/setlinebuf.c
-    ./lib/sh/itos.c
-    ./lib/sh/gettimeofday.c
-    ./lib/sh/strtoimax.c
-    ./lib/sh/netopen.c
-    ./lib/sh/input_avail.c
-    ./lib/sh/pathphys.c
-    ./lib/sh/strnlen.c
-    ./lib/sh/shmatch.c
-    ./lib/sh/getcwd.c
-    ./lib/sh/casemod.c
-    ./lib/sh/fmtulong.c
-    ./lib/sh/fpurge.c
-    ./lib/sh/clock.c
-    ./lib/sh/getenv.c
-    ./lib/sh/random.c
-    ./lib/sh/mailstat.c
-    ./lib/sh/utf8.c
-    ./lib/sh/mbscmp.c
-    ./lib/glob/smatch.c
-    ./lib/glob/strmatch.c
-    ./lib/glob/gmisc.c
-    ./lib/glob/xmbsrtowcs.c
-    ./lib/glob/glob.c
-    ./lib/tilde/tilde.c
     ./hashcmd.c
     ./y.tab.c
     ./variables.c
@@ -151,7 +98,7 @@ add_executable(${PROJECT_NAME}
     ./bracecomp.c
     ./redir.c
 )
-target_link_libraries(${PROJECT_NAME} builtins ncurses) # TODO: readline history sh glob tilde
+target_link_libraries(${PROJECT_NAME} builtins sh glob tilde ncurses) # TODO: readline history
 include_directories(. include lib)
 
 install(TARGETS ${PROJECT_NAME}
@@ -179,15 +126,11 @@ add_executable(bashversion
 )
 #target_include_directories(bashversion PRIVATE . include)
 
-#./builtins/libbuiltins.a
 #./lib/readline/libreadline.a
 #./lib/readline/libhistory.a
-#./lib/sh/libsh.a
-#./lib/glob/libglob.a
-#./lib/tilde/libtilde.a
 
 add_subdirectory(builtins)
 #add_subdirectory(lib/readline)
-#add_subdirectory(lib/sh)
-#add_subdirectory(lib/glob)
-#add_subdirectory(lib/tilde)
+add_subdirectory(lib/sh)
+add_subdirectory(lib/glob)
+add_subdirectory(lib/tilde)
