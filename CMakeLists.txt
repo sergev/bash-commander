@@ -16,53 +16,59 @@ add_definitions(-DSHELL)
 add_definitions(-DCOMMANDER)
 
 add_executable(${PROJECT_NAME}
-    jobs.c
-    error.c
-    trap.c
-    copy_cmd.c
-    input.c
-    mailcheck.c
-    shell.c
-    version.c
-    dispose_cmd.c
+    bash/jobs.c
+    bash/error.c
+    bash/trap.c
+    bash/copy_cmd.c
+    bash/input.c
+    bash/mailcheck.c
+    bash/shell.c
+    bash/version.c
+    bash/dispose_cmd.c
     syntax.c
-    xmalloc.c
-    alias.c
-    pathexp.c
+    bash/xmalloc.c
+    bash/alias.c
+    bash/pathexp.c
     locale.c
     commander.c
-    execute_cmd.c
-    pcomplete.c
-    general.c
-    flags.c
-    test.c
-    subst.c
-    braces.c
-    findcmd.c
-    expr.c
-    assoc.c
-    bashhist.c
-    arrayfunc.c
-    list.c
-    make_cmd.c
+    bash/execute_cmd.c
+    bash/pcomplete.c
+    bash/general.c
+    bash/flags.c
+    bash/test.c
+    bash/subst.c
+    bash/braces.c
+    bash/findcmd.c
+    bash/expr.c
+    bash/assoc.c
+    bash/bashhist.c
+    bash/arrayfunc.c
+    bash/list.c
+    bash/make_cmd.c
     sig.c
-    eval.c
-    pcomplib.c
-    array.c
+    bash/eval.c
+    bash/pcomplib.c
+    bash/array.c
     bashline.c
-    hashcmd.c
-    y.tab.c
+    bash/hashcmd.c
+    bash/y.tab.c
     variables.c
-    unwind_prot.c
-    hashlib.c
-    print_cmd.c
-    stringlib.c
-    bracecomp.c
-    redir.c
+    bash/unwind_prot.c
+    bash/hashlib.c
+    bash/print_cmd.c
+    bash/stringlib.c
+    bash/bracecomp.c
+    bash/redir.c
     signames.h
 )
 target_link_libraries(${PROJECT_NAME} builtins readline sh glob tilde ncurses)
-include_directories(. include lib ${CMAKE_BINARY_DIR})
+include_directories(
+    .
+    bash
+    bash/include
+    bash/lib
+    ${CMAKE_BINARY_DIR}
+)
 
 install(TARGETS ${PROJECT_NAME}
     DESTINATION bin
@@ -73,14 +79,14 @@ install(FILES
     DESTINATION etc
 )
 
-add_executable(mksyntax mksyntax.c)
+add_executable(mksyntax bash/mksyntax.c)
 add_executable(mksignames
-    support/mksignames.c
-    support/signames.c
+    bash/support/mksignames.c
+    bash/support/signames.c
 )
 add_executable(bashversion
-    support/bashversion.c
-    version.c
+    bash/support/bashversion.c
+    bash/version.c
     version.h
 )
 
@@ -93,13 +99,13 @@ add_subdirectory(lib/tilde)
 add_custom_command(
     OUTPUT syntax.c
     COMMAND ./mksyntax -o syntax.c
-    DEPENDS mksyntax ${CMAKE_CURRENT_SOURCE_DIR}/syntax.h
+    DEPENDS mksyntax ${CMAKE_CURRENT_SOURCE_DIR}/bash/syntax.h
 )
 
 add_custom_command(
     OUTPUT version.h
-    COMMAND ${CMAKE_SOURCE_DIR}/support/mkversion.sh -b -S ${CMAKE_CURRENT_SOURCE_DIR} -d ${PROJECT_VERSION} -o version.h
-    DEPENDS support/mkversion.sh config.h patchlevel.h
+    COMMAND ${CMAKE_SOURCE_DIR}/bash/support/mkversion.sh -b -S ${CMAKE_CURRENT_SOURCE_DIR}/bash -d ${PROJECT_VERSION} -o version.h
+    DEPENDS bash/support/mkversion.sh config.h bash/patchlevel.h
 )
 
 add_custom_command(

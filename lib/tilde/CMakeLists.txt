@@ -1,6 +1,6 @@
 add_library(tilde STATIC
-    tilde.c
+    ${CMAKE_SOURCE_DIR}/bash/lib/tilde/tilde.c
 )
 target_include_directories(tilde BEFORE PUBLIC
-    .
+    ${CMAKE_SOURCE_DIR}/bash/lib/tilde
 )
