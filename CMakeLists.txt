@@ -22,6 +22,12 @@ set(CURSES_NEED_NCURSES TRUE)
 #set(CURSES_NEED_WIDE TRUE)
 find_package(Curses REQUIRED)
 
+include(CheckSymbolExists)
+check_symbol_exists(arc4random "stdlib.h" HAVE_ARC4RANDOM)
+if(HAVE_ARC4RANDOM)
+    add_definitions(-DHAVE_ARC4RANDOM)
+endif()
+
 add_executable(${PROJECT_NAME}
     bash/jobs.c
     bash/error.c

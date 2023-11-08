@@ -58,25 +58,25 @@ typedef struct _dirinfo {
 } DIRINFO;
 
 /* Enable and disable commander. */
-extern int cmdr_init __P((char*));
-extern void cmdr_disable __P((void));
+extern int cmdr_init (char*);
+extern void cmdr_disable (void);
 
 /* Switch between visual mode and line mode of commander. */
-extern void cmdr_activate __P((int active));
+extern void cmdr_activate (int active);
 
 /* Process special variable COMMANDER. */
-extern void sv_commander __P((char *));
+extern void sv_commander (char *);
 
 /* Reinitialize on change of TERM or LANG variables. */
-void cmdr_reset_terminal __P((void));
-void cmdr_reset_graphics __P((void));
+void cmdr_reset_terminal (void);
+void cmdr_reset_graphics (void);
 
-void cmdr_term_goto __P((int,int));
-void cmdr_term_graphics __P((int));
-void cmdr_hor_line __P((int));
-void cmdr_reset_graphics __P((void));
-int cmdr_get_lines __P((void));
-void cmdr_set_lines_and_columns __P((int, int));
+void cmdr_term_goto (int, int);
+void cmdr_term_graphics (int);
+void cmdr_hor_line (int);
+void cmdr_reset_graphics (void);
+int cmdr_get_lines (void);
+void cmdr_set_lines_and_columns (int, int);
 
 #ifdef __cplusplus
 }

@@ -405,7 +405,7 @@ enable_hostname_completion (on_or_off)
      allocate new memory for rl_completer_word_break_characters. */
 
   if (bash_readline_initialized == 0 &&
-      (rl_completer_word_break_characters == 0 || 
+      (rl_completer_word_break_characters == 0 ||
        rl_completer_word_break_characters == rl_basic_word_break_characters))
     {
       if (on_or_off)
@@ -984,7 +984,7 @@ edit_and_execute_command (count, c, editing_mode, edit_command)
 
   metaval = rl_variable_value ("input-meta");
   metaflag = RL_BOOLEAN_VARIABLE_VALUE (metaval);
-  
+
   if (rl_deprep_term_function)
     (*rl_deprep_term_function) ();
   rl_clear_signals ();
@@ -1139,7 +1139,7 @@ bash_forward_shellword (count, key)
 	  rl_ding ();
 	  return 0;
         }
-	
+
       /* Now move forward until we hit a non-quoted metacharacter or EOL */
       while (p < rl_end && (c = rl_line_buffer[p]) && WORDDELIM (c) == 0)
 	{
@@ -1170,7 +1170,7 @@ bash_forward_shellword (count, key)
 	  return (0);
 	}
 
-      count--;      
+      count--;
     }
 
   rl_point = p;
@@ -1397,9 +1397,9 @@ bash_spell_correct_shellword (count, key)
 /* **************************************************************** */
 
 #define COMMAND_SEPARATORS ";|&{(`"
-/* )} */ 
+/* )} */
 #define COMMAND_SEPARATORS_PLUS_WS ";|&{(` \t"
-/* )} */ 
+/* )} */
 
 /* check for redirections and other character combinations that are not
    command separators */
@@ -1615,7 +1615,7 @@ attempt_shell_completion (text, start, end)
 	ti--;
     }
 #endif
-      
+
   in_command_position = 0;
   if (ti < 0)
     {
@@ -1955,7 +1955,7 @@ executable_completion (filename, searching_path)
   f = bash_quote_filename ((char *)filename, SINGLE_MATCH, &c);
 #endif
   bash_directory_completion_hook (&f);
-  
+
   r = searching_path ? executable_file (f) : executable_or_directory (f);
   free (f);
   return r;
@@ -2090,7 +2090,7 @@ command_word_completion_function (hint_text, state)
 
       if (rl_completion_found_quote && rl_completion_quote_character == 0)
 	dequoted_hint = bash_dequote_filename (hint, 0);
-      
+
       path = get_string_value ("PATH");
       path_index = dot_in_path = 0;
 
@@ -2205,7 +2205,7 @@ globword:
 	    }
 
 	  local_index = 0;
-		
+
 	  if (glob_matches[1] && rl_completion_type == TAB)	/* multiple matches are bad */
 	    return ((char *)NULL);
 	}
@@ -2238,7 +2238,7 @@ globword:
       hint_is_dir = 0;	/* only return the hint text once */
       return (savestring (hint_text));
     }
-    
+
   /* Repeatedly call filename_completion_function while we have
      members of PATH left.  Question:  should we stat each file?
      Answer: we call executable_file () on each file. */
@@ -3372,7 +3372,7 @@ directory_exists (dirname, should_dequote)
   free (new_dirname);
   return (r);
 }
-  
+
 /* Expand a filename before the readline completion code passes it to stat(2).
    The filename will already have had tilde expansion performed. */
 static int
@@ -3393,8 +3393,8 @@ bash_filename_stat_hook (dirname)
 
   if (should_expand_dirname && directory_exists (local_dirname, 0))
     should_expand_dirname = 0;
-  
-  if (should_expand_dirname)  
+
+  if (should_expand_dirname)
     {
       new_dirname = savestring (local_dirname);
       /* no error messages, and expand_prompt_string doesn't longjmp so we don't
@@ -3422,7 +3422,7 @@ bash_filename_stat_hook (dirname)
 	}
       else
 	free (new_dirname);
-    }	
+    }
 
   /* This is very similar to the code in bash_directory_completion_hook below,
      but without spelling correction and not worrying about whether or not
@@ -3471,7 +3471,7 @@ bash_directory_completion_hook (dirname)
   if (should_expand_dirname && directory_exists (local_dirname, 1))
     should_expand_dirname = 0;
 
-  if (should_expand_dirname)  
+  if (should_expand_dirname)
     {
       new_dirname = savestring (local_dirname);
       wl = expand_prompt_string (new_dirname, 0, W_NOCOMSUB|W_NOPROCSUB|W_COMPLETE);	/* does the right thing */
@@ -3497,7 +3497,7 @@ bash_directory_completion_hook (dirname)
 	  return 1;
 	}
     }
-  else 
+  else
     {
       /* Dequote the filename even if we don't expand it. */
       new_dirname = bash_dequote_filename (local_dirname, rl_completion_quote_character);
@@ -3523,11 +3523,11 @@ bash_directory_completion_hook (dirname)
       int len1, len2;
 
       /* If we have a relative path
-      		(local_dirname[0] != '/' && local_dirname[0] != '.')
+		(local_dirname[0] != '/' && local_dirname[0] != '.')
 	 that is canonical after appending it to the current directory, then
-	 	temp1 = temp2+'/'
+		temp1 = temp2+'/'
 	 That is,
-	 	strcmp (temp1, temp2) == 0
+		strcmp (temp1, temp2) == 0
 	 after adding a slash to temp2 below.  It should be safe to not
 	 change those.
       */
@@ -3963,7 +3963,7 @@ bash_glob_complete_word (count, key)
     rl_explicit_arg = 1;	/* force `*' append */
   orig_quoting_function = rl_filename_quoting_function;
   rl_filename_quoting_function = bash_glob_quote_filename;
-  
+
   r = bash_glob_completion_internal (rl_completion_mode (bash_glob_complete_word));
 
   rl_filename_quoting_function = orig_quoting_function;
@@ -4044,7 +4044,7 @@ bash_vi_complete (count, key)
       p = r;
 
       t = substring (rl_line_buffer, p, rl_point);
-    }      
+    }
 
   if (t && completion_glob_pattern (t) == 0)
     rl_explicit_arg = 1;	/* XXX - force glob_complete_word to append `*' */
@@ -4296,7 +4296,7 @@ bash_quote_filename (s, rtype, qcp)
       file_exists (s) == 0)
     {
       /* Usually this will have been set by bash_directory_completion_hook,
-      	 but there are cases where it will not be. */
+	 but there are cases where it will not be. */
       if (rl_filename_quote_characters != custom_filename_quote_characters)
 	set_filename_quote_chars (expchar, nextch, closer);
       complete_fullquote = 0;
@@ -4578,7 +4578,7 @@ init_unix_command_map ()
   emacs_std_cmd_xmap[ESC].type = ISKMAP;
   emacs_std_cmd_xmap[ESC].function = KEYMAP_TO_FUNCTION (rl_make_bare_keymap ());
 
-#if defined (VI_MODE)  
+#if defined (VI_MODE)
   vi_insert_cmd_xmap = rl_make_bare_keymap ();
   vi_movement_cmd_xmap = rl_make_bare_keymap ();
 #endif
@@ -4646,7 +4646,7 @@ isolate_sequence (string, ind, need_dquote, startp)
   /* We can have delimited strings even if NEED_DQUOTE == 0, like the command
      string to bind the key sequence to. */
   delim = (string[i] == '"' || string[i] == '\'') ? string[i] : 0;
-    
+
   if (startp)
     *startp = delim ? ++i : i;
 
@@ -4722,7 +4722,7 @@ bind_keyseq_to_unix_command (line)
      understands how to execute from CMD_XMAP */
   rl_bind_keyseq_in_map (kseq, bash_execute_unix_command, kmap);
 
-  free (kseq);  
+  free (kseq);
   return 0;
 }
 
@@ -4752,7 +4752,7 @@ bash_directory_completion_matches (text)
   char *dfn;
   int qc;
 
-  qc = rl_dispatching ? rl_completion_quote_character : 0;  
+  qc = rl_dispatching ? rl_completion_quote_character : 0;
   /* If rl_completion_found_quote != 0, rl_completion_matches will call the
      filename dequoting function, causing the directory name to be dequoted
      twice. */

@@ -93,7 +93,7 @@ rl_command_func_t *cmdr_original_tab_func;
 DIRINFO *cmdr_panel [2];
 int cmdr_current_panel;
 
-void cmdr_set_visual_mode __P((int enable_visual));
+void cmdr_set_visual_mode (int enable_visual);
 
 /*
  * Parse parameter string up to ':', unescaping characters.
@@ -760,7 +760,7 @@ DIRINFO *cmdr_read_directory (path, olddir, oldcur)
       dir->base_column = olddir->base_column;
       if (strcmp (dir->path, olddir->path) == 0)
 	{
-    	  cmdr_restore_top (dir, &olddir->tab[olddir->top]->st);
+	  cmdr_restore_top (dir, &olddir->tab[olddir->top]->st);
 	  cmdr_restore_current (dir, &olddir->tab[olddir->current]->st);
 	}
       cmdr_restore_tagged (dir, olddir);
@@ -842,25 +842,25 @@ cmdr_draw_file (fi, line, column)
   if (fi->type != ' ' || fi->link || fi->tagged)
     {
       if (line)
-    	fputs (cmdr_color_dim, rl_outstream);
+	fputs (cmdr_color_dim, rl_outstream);
       fputc (fi->type, rl_outstream);
       if (fi->tagged)
 	{
 	  fputc ('>', rl_outstream);
-    	  if (line)
+	  if (line)
 	    fputs (cmdr_color_bold, rl_outstream);
 	}
       else
 	{
 	  fputc (fi->link ? '@' : ' ', rl_outstream);
-    	  if (line)
-  	    fputs (cmdr_color_normal, rl_outstream);
+	  if (line)
+	    fputs (cmdr_color_normal, rl_outstream);
 	}
     }
   else
     {
       if (line)
-  	fputs (cmdr_color_normal, rl_outstream);
+	fputs (cmdr_color_normal, rl_outstream);
       fputs ("  ", rl_outstream);
     }
 
@@ -983,8 +983,8 @@ cmdr_draw_panel_contents (dir, clean_flag)
 	  cmdr_term_goto (i - dir->top + 1, dir->base_column + 2);
 	  for (n=2; n<panel_width; ++n)
 	    fputc (' ', rl_outstream);
-  	  ++i;
-  	}
+	  ++i;
+	}
     }
 }
 
@@ -2245,7 +2245,7 @@ cmdr_activate (active)
     {
       if (cmdr_visual_mode)
 	{
-    	  /* Key <Enter> pressed in visual panel mode. */
+	  /* Key <Enter> pressed in visual panel mode. */
 	  if (cmdr_saved_line)
 	    {
 	      /* Restore saved command line. This is needed for

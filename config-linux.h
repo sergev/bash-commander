@@ -182,8 +182,6 @@
 /* Define AFS if you are using Transarc's AFS. */
 /* #undef AFS */
 
-#define ENABLE_NLS 1
-
 /* End of configuration settings controllable by autoconf. */
 /* Other settable options appear in config-top.h. */
 
@@ -562,9 +560,6 @@
 /* #undef UNUSABLE_RT_SIGNALS */
 
 /* Presence of system and C library functions. */
-
-/* Define if you have the arc4random function.  */
-#define HAVE_ARC4RANDOM 1
 
 /* Define if you have the asprintf function.  */
 #define HAVE_ASPRINTF 1
