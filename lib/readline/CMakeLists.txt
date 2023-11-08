@@ -25,7 +25,6 @@ add_library(readline STATIC
     ${CMAKE_SOURCE_DIR}/bash/lib/readline/histexpand.c
     ${CMAKE_SOURCE_DIR}/bash/lib/readline/histfile.c
     ${CMAKE_SOURCE_DIR}/bash/lib/readline/histsearch.c
-    ${CMAKE_SOURCE_DIR}/bash/lib/readline/shell.c
     ${CMAKE_SOURCE_DIR}/bash/lib/readline/savestring.c
     ${CMAKE_SOURCE_DIR}/bash/lib/readline/mbutil.c
     ${CMAKE_SOURCE_DIR}/bash/lib/readline/tilde.c
