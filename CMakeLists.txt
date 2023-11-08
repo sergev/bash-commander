@@ -3,7 +3,6 @@ cmake_minimum_required(VERSION 3.15)
 project(bashc VERSION 5.2 DESCRIPTION "Bash Commander")
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 17)
-#TODO: add_compile_options(-Wall -Werror -Wshadow)
 add_compile_options(-Wno-deprecated-non-prototype -Wno-parentheses)
 
 add_definitions(-DCONF_MACHTYPE="${CMAKE_SYSTEM_PROCESSOR}-${CMAKE_C_COMPILER_ID}-${CMAKE_SYSTEM}")
@@ -68,15 +67,11 @@ include_directories(. include lib ${CMAKE_BINARY_DIR})
 install(TARGETS ${PROJECT_NAME}
     DESTINATION bin
 )
-#install(FILES deco.1 deco-ru.1
-#    DESTINATION share/man/man1
-#)
-#install(FILES menu profile
-#    DESTINATION lib/deco
-#)
-#install(FILES help/e.general help/e.edit help/e.view help/e.hexview
-#    DESTINATION lib/deco/help
-#)
+install(FILES
+    examples/startup-files/bash_commander
+    examples/startup-files/bash_dialog
+    DESTINATION etc
+)
 
 add_executable(mksyntax mksyntax.c)
 add_executable(mksignames

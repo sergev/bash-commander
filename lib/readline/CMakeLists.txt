@@ -38,18 +38,3 @@ add_library(readline STATIC
 target_include_directories(readline BEFORE PUBLIC
     .
 )
-
-#add_library(history STATIC
-#    history.c
-#    histexpand.c
-#    histfile.c
-#    histsearch.c
-#    shell.c
-#    savestring.c
-#    mbutil.c
-#    xmalloc.c
-#    xfree.c
-#)
-#target_include_directories(history BEFORE PUBLIC
-#    .
-#)
