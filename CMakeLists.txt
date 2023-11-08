@@ -18,6 +18,10 @@ add_definitions(-DCOMMANDER)
 find_package(BISON 3.0 REQUIRED)
 bison_target(parse parse.y parse.c)
 
+set(CURSES_NEED_NCURSES TRUE)
+#set(CURSES_NEED_WIDE TRUE)
+find_package(Curses REQUIRED)
+
 add_executable(${PROJECT_NAME}
     bash/jobs.c
     bash/error.c
@@ -64,7 +68,7 @@ add_executable(${PROJECT_NAME}
     bash/redir.c
     signames.h
 )
-target_link_libraries(${PROJECT_NAME} builtins readline sh glob tilde ncurses)
+target_link_libraries(${PROJECT_NAME} builtins readline sh glob tilde ${CURSES_LIBRARIES})
 include_directories(
     .
     bash
