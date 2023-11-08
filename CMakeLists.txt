@@ -68,8 +68,8 @@ install(TARGETS ${PROJECT_NAME}
     DESTINATION bin
 )
 install(FILES
-    examples/startup-files/bash_commander
-    examples/startup-files/bash_dialog
+    bash_commander
+    bash_dialog
     DESTINATION etc
 )
 
