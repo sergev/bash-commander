@@ -14,7 +14,7 @@ add_definitions(-DLOCALEDIR="/usr/local/share/locale")
 add_definitions(-DPACKAGE="bashc")
 add_definitions(-DHAVE_CONFIG_H)
 add_definitions(-DSHELL)
-#TODO: add_definitions(-DCOMMANDER)
+add_definitions(-DCOMMANDER)
 
 add_executable(${PROJECT_NAME}
     ./jobs.c
@@ -48,7 +48,6 @@ add_executable(${PROJECT_NAME}
     ./make_cmd.c
     ./sig.c
     ./eval.c
-    ./support/man2html.c
     ./pcomplib.c
     ./array.c
     ./bashline.c

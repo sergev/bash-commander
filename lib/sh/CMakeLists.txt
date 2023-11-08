@@ -4,7 +4,7 @@ add_library(sh STATIC
     getenv.c
     oslib.c
     setlinebuf.c
-    strnlen.c
+#   strnlen.c
     itos.c
     zread.c
     zwrite.c
@@ -23,7 +23,7 @@ add_library(sh STATIC
     spell.c
     shquote.c
     strtrans.c
-    snprintf.c
+#   snprintf.c
     mailstat.c
     fmtulong.c
     fmtullong.c
@@ -31,7 +31,7 @@ add_library(sh STATIC
     zcatfd.c
     zmapfd.c
     winsize.c
-    wcsdup.c
+#   wcsdup.c
     fpurge.c
     zgetline.c
     mbscmp.c
@@ -46,9 +46,11 @@ add_library(sh STATIC
     strvis.c
     utf8.c
     random.c
-    gettimeofday.c
+#   gettimeofday.c
     timers.c
     wcsnwidth.c
+    strchrnul.c
+    mbschr.c
 )
 target_include_directories(sh BEFORE PUBLIC
     .
