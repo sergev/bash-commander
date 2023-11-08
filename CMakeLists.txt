@@ -92,28 +92,18 @@ install(FILES
     DESTINATION etc
 )
 
-add_executable(mksyntax bash/mksyntax.c)
 add_executable(mksignames
     bash/support/mksignames.c
     bash/support/signames.c
-)
-add_executable(bashversion
-    bash/support/bashversion.c
-    bash/version.c
     version.h
 )
+add_executable(mksyntax bash/mksyntax.c)
 
 add_subdirectory(builtins)
 add_subdirectory(lib/readline)
 add_subdirectory(lib/sh)
 add_subdirectory(lib/glob)
 add_subdirectory(lib/tilde)
-
-add_custom_command(
-    OUTPUT syntax.c
-    COMMAND ./mksyntax -o syntax.c
-    DEPENDS mksyntax ${CMAKE_CURRENT_SOURCE_DIR}/bash/syntax.h
-)
 
 add_custom_command(
     OUTPUT version.h
@@ -125,4 +115,10 @@ add_custom_command(
     OUTPUT signames.h
     COMMAND ./mksignames signames.h
     DEPENDS mksignames
+)
+
+add_custom_command(
+    OUTPUT syntax.c
+    COMMAND ./mksyntax -o syntax.c
+    DEPENDS mksyntax ${CMAKE_CURRENT_SOURCE_DIR}/bash/syntax.h
 )
