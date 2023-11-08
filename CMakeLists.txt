@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.15)
 
-project(bashc VERSION 4.2 DESCRIPTION "Bash Commander")
+project(bashc VERSION 5.2 DESCRIPTION "Bash Commander")
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 17)
 #TODO: add_compile_options(-Wall -Werror -Wshadow)
@@ -60,6 +60,7 @@ add_executable(${PROJECT_NAME}
     stringlib.c
     bracecomp.c
     redir.c
+    signames.h
 )
 target_link_libraries(${PROJECT_NAME} builtins readline sh glob tilde ncurses)
 include_directories(. include lib ${CMAKE_BINARY_DIR})
@@ -104,4 +105,10 @@ add_custom_command(
     OUTPUT version.h
     COMMAND ${CMAKE_SOURCE_DIR}/support/mkversion.sh -b -S ${CMAKE_CURRENT_SOURCE_DIR} -d ${PROJECT_VERSION} -o version.h
     DEPENDS support/mkversion.sh config.h patchlevel.h
+)
+
+add_custom_command(
+    OUTPUT signames.h
+    COMMAND ./mksignames signames.h
+    DEPENDS mksignames
 )
