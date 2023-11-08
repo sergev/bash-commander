@@ -17,52 +17,52 @@ add_definitions(-DSHELL)
 add_definitions(-DCOMMANDER)
 
 add_executable(${PROJECT_NAME}
-    ./jobs.c
-    ./error.c
-    ./trap.c
-    ./copy_cmd.c
-    ./input.c
-    ./mailcheck.c
-    ./shell.c
-    ./version.c
-    ./dispose_cmd.c
-    ./syntax.c
-    ./xmalloc.c
-    ./alias.c
-    ./pathexp.c
-    ./locale.c
-    ./commander.c
-    ./execute_cmd.c
-    ./pcomplete.c
-    ./general.c
-    ./flags.c
-    ./test.c
-    ./subst.c
-    ./braces.c
-    ./findcmd.c
-    ./expr.c
-    ./assoc.c
-    ./bashhist.c
-    ./arrayfunc.c
-    ./list.c
-    ./make_cmd.c
-    ./sig.c
-    ./eval.c
-    ./pcomplib.c
-    ./array.c
-    ./bashline.c
-    ./hashcmd.c
-    ./y.tab.c
-    ./variables.c
-    ./unwind_prot.c
-    ./hashlib.c
-    ./print_cmd.c
-    ./stringlib.c
-    ./bracecomp.c
-    ./redir.c
+    jobs.c
+    error.c
+    trap.c
+    copy_cmd.c
+    input.c
+    mailcheck.c
+    shell.c
+    version.c
+    dispose_cmd.c
+    syntax.c
+    xmalloc.c
+    alias.c
+    pathexp.c
+    locale.c
+    commander.c
+    execute_cmd.c
+    pcomplete.c
+    general.c
+    flags.c
+    test.c
+    subst.c
+    braces.c
+    findcmd.c
+    expr.c
+    assoc.c
+    bashhist.c
+    arrayfunc.c
+    list.c
+    make_cmd.c
+    sig.c
+    eval.c
+    pcomplib.c
+    array.c
+    bashline.c
+    hashcmd.c
+    y.tab.c
+    variables.c
+    unwind_prot.c
+    hashlib.c
+    print_cmd.c
+    stringlib.c
+    bracecomp.c
+    redir.c
 )
 target_link_libraries(${PROJECT_NAME} builtins readline sh glob tilde ncurses)
-include_directories(. include lib)
+include_directories(. include lib ${CMAKE_BINARY_DIR})
 
 install(TARGETS ${PROJECT_NAME}
     DESTINATION bin
@@ -77,6 +77,7 @@ install(TARGETS ${PROJECT_NAME}
 #    DESTINATION lib/deco/help
 #)
 
+add_executable(mksyntax mksyntax.c)
 add_executable(mksignames
     support/mksignames.c
     support/signames.c
@@ -84,6 +85,7 @@ add_executable(mksignames
 add_executable(bashversion
     support/bashversion.c
     version.c
+    version.h
 )
 
 add_subdirectory(builtins)
@@ -91,3 +93,15 @@ add_subdirectory(lib/readline)
 add_subdirectory(lib/sh)
 add_subdirectory(lib/glob)
 add_subdirectory(lib/tilde)
+
+add_custom_command(
+    OUTPUT syntax.c
+    COMMAND ./mksyntax -o syntax.c
+    DEPENDS mksyntax ${CMAKE_CURRENT_SOURCE_DIR}/syntax.h
+)
+
+add_custom_command(
+    OUTPUT version.h
+    COMMAND ${CMAKE_SOURCE_DIR}/support/mkversion.sh -b -S ${CMAKE_CURRENT_SOURCE_DIR} -d ${PROJECT_VERSION} -o version.h
+    DEPENDS support/mkversion.sh config.h patchlevel.h
+)

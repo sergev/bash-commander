@@ -48,22 +48,47 @@ add_library(builtins STATIC
     mapfile.c
     set.c
     shopt.c
+    pipesize.h
 )
 target_include_directories(builtins BEFORE PUBLIC
     .
+    ${CMAKE_CURRENT_BINARY_DIR}
 )
 
 add_executable(mkbuiltins mkbuiltins.c)
-#target_include_directories(mkbuiltins PRIVATE ${CMAKE_SOURCE_DIR})
+add_executable(psize.aux psize.c)
 
-#add_custom_command(
-#    OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/elftc_version.c
-#    COMMAND sed -e 's:ELFTC_VERSION:\"${MLA_VERSION}.${GIT_REVCOUNT}-${GIT_BRANCH}-${GIT_HASH}\":'
-#                ${CMAKE_CURRENT_SOURCE_DIR}/libelftc/elftc_version.c
-#                > ${CMAKE_CURRENT_BINARY_DIR}/elftc_version.c
-#    DEPENDS ${CMAKE_SOURCE_DIR}/.git/HEAD
-#            ${CMAKE_SOURCE_DIR}/.git/
-#)
+set(DEFS
+    ${CMAKE_CURRENT_SOURCE_DIR}/alias.def ${CMAKE_CURRENT_SOURCE_DIR}/bind.def
+    ${CMAKE_CURRENT_SOURCE_DIR}/break.def ${CMAKE_CURRENT_SOURCE_DIR}/builtin.def
+    ${CMAKE_CURRENT_SOURCE_DIR}/caller.def ${CMAKE_CURRENT_SOURCE_DIR}/cd.def ${CMAKE_CURRENT_SOURCE_DIR}/colon.def
+    ${CMAKE_CURRENT_SOURCE_DIR}/command.def ${CMAKE_CURRENT_SOURCE_DIR}/declare.def ${CMAKE_CURRENT_SOURCE_DIR}/echo.def
+    ${CMAKE_CURRENT_SOURCE_DIR}/enable.def ${CMAKE_CURRENT_SOURCE_DIR}/eval.def ${CMAKE_CURRENT_SOURCE_DIR}/getopts.def
+    ${CMAKE_CURRENT_SOURCE_DIR}/exec.def ${CMAKE_CURRENT_SOURCE_DIR}/exit.def ${CMAKE_CURRENT_SOURCE_DIR}/fc.def
+    ${CMAKE_CURRENT_SOURCE_DIR}/fg_bg.def ${CMAKE_CURRENT_SOURCE_DIR}/hash.def ${CMAKE_CURRENT_SOURCE_DIR}/help.def
+    ${CMAKE_CURRENT_SOURCE_DIR}/history.def ${CMAKE_CURRENT_SOURCE_DIR}/jobs.def ${CMAKE_CURRENT_SOURCE_DIR}/kill.def
+    ${CMAKE_CURRENT_SOURCE_DIR}/let.def ${CMAKE_CURRENT_SOURCE_DIR}/read.def ${CMAKE_CURRENT_SOURCE_DIR}/return.def
+    ${CMAKE_CURRENT_SOURCE_DIR}/set.def ${CMAKE_CURRENT_SOURCE_DIR}/setattr.def ${CMAKE_CURRENT_SOURCE_DIR}/shift.def
+    ${CMAKE_CURRENT_SOURCE_DIR}/source.def ${CMAKE_CURRENT_SOURCE_DIR}/suspend.def ${CMAKE_CURRENT_SOURCE_DIR}/test.def
+    ${CMAKE_CURRENT_SOURCE_DIR}/times.def ${CMAKE_CURRENT_SOURCE_DIR}/trap.def ${CMAKE_CURRENT_SOURCE_DIR}/type.def
+    ${CMAKE_CURRENT_SOURCE_DIR}/ulimit.def ${CMAKE_CURRENT_SOURCE_DIR}/umask.def ${CMAKE_CURRENT_SOURCE_DIR}/wait.def
+    ${CMAKE_CURRENT_SOURCE_DIR}/reserved.def ${CMAKE_CURRENT_SOURCE_DIR}/pushd.def ${CMAKE_CURRENT_SOURCE_DIR}/shopt.def
+    ${CMAKE_CURRENT_SOURCE_DIR}/printf.def ${CMAKE_CURRENT_SOURCE_DIR}/complete.def ${CMAKE_CURRENT_SOURCE_DIR}/mapfile.def
+)
+
+add_custom_command(
+    OUTPUT builtins.c builtext.h
+    COMMAND ./mkbuiltins -externfile builtext.h -structfile builtins.c ${DEFS}
+    DEPENDS mkbuiltins ${DEFS}
+)
+
+# Technically this is wrong; the pipe size should be for the target system,
+# not the build host.
+add_custom_command(
+    OUTPUT pipesize.h
+    COMMAND /bin/sh ${CMAKE_CURRENT_SOURCE_DIR}/psize.sh > pipesize.h
+    DEPENDS psize.aux
+)
 
 function(MAKE_BUILTIN NAME)
     add_custom_command(
