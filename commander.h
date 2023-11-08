@@ -64,6 +64,9 @@ extern void cmdr_disable __P((void));
 /* Switch between visual mode and line mode of commander. */
 extern void cmdr_activate __P((int active));
 
+/* Process special variable COMMANDER. */
+extern void sv_commander __P((char *));
+
 /* Reinitialize on change of TERM or LANG variables. */
 void cmdr_reset_terminal __P((void));
 void cmdr_reset_graphics __P((void));

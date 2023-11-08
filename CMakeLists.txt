@@ -15,6 +15,9 @@ add_definitions(-DHAVE_CONFIG_H)
 add_definitions(-DSHELL)
 add_definitions(-DCOMMANDER)
 
+find_package(BISON 3.0 REQUIRED)
+bison_target(parse parse.y parse.c)
+
 add_executable(${PROJECT_NAME}
     bash/jobs.c
     bash/error.c
@@ -51,7 +54,7 @@ add_executable(${PROJECT_NAME}
     bash/array.c
     bashline.c
     bash/hashcmd.c
-    bash/y.tab.c
+    ${BISON_parse_OUTPUT_SOURCE}
     variables.c
     bash/unwind_prot.c
     bash/hashlib.c
