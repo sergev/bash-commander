@@ -1,6 +1,6 @@
-/* commander.h -- File commander mode. */
+/* commander.h -- File browser mode. */
 
-/* Copyright (C) 2007 Serge Vakulenko <vak@cronyx.ru>
+/* Copyright (C) 2007-2023 Serge Vakulenko <serge.vakulenko@gmail.com>
 
    This file is part of the GNU Readline Library, a library for
    reading lines of text with interactive input and history editing.

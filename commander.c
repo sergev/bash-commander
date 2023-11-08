@@ -1,6 +1,6 @@
 /*
- * Readline commander: embedded file browser.
- * Copyright (C) 2007 Serge Vakulenko <vak@cronyx.ru>
+ * Bash commander: visual shell with two-panel file browser.
+ * Copyright (C) 2007-2023 Serge Vakulenko <serge.vakulenko@gmail.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by

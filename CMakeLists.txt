@@ -3,7 +3,15 @@ cmake_minimum_required(VERSION 3.15)
 project(bashc VERSION 5.2 DESCRIPTION "Bash Commander")
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 17)
-add_compile_options(-Wno-deprecated-non-prototype -Wno-parentheses)
+add_compile_options(-Wno-deprecated-non-prototype -Wno-parentheses -Wno-incompatible-pointer-types-discards-qualifiers)
+
+# Get git revision count
+execute_process(
+    COMMAND git rev-list HEAD --count
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+    OUTPUT_VARIABLE GIT_REVCOUNT
+)
 
 add_definitions(-DCONF_MACHTYPE="${CMAKE_SYSTEM_PROCESSOR}-${CMAKE_C_COMPILER_ID}-${CMAKE_SYSTEM}")
 add_definitions(-DCONF_HOSTTYPE="${CMAKE_SYSTEM_PROCESSOR}")
@@ -11,6 +19,9 @@ add_definitions(-DCONF_VENDOR="${CMAKE_C_COMPILER_ID}")
 add_definitions(-DCONF_OSTYPE="${CMAKE_SYSTEM}")
 add_definitions(-DLOCALEDIR="/usr/local/share/locale")
 add_definitions(-DPACKAGE="bashc")
+add_definitions(-DDISTVERSION="${CMAKE_PROJECT_VERSION}")
+add_definitions(-DDEFAULT_COMPAT_LEVEL=${CMAKE_PROJECT_VERSION_MAJOR}*10+${CMAKE_PROJECT_VERSION_MINOR})
+add_definitions(-DBUILDVERSION=${GIT_REVCOUNT})
 add_definitions(-DHAVE_CONFIG_H)
 add_definitions(-DSHELL)
 add_definitions(-DCOMMANDER)
@@ -36,7 +47,7 @@ add_executable(${PROJECT_NAME}
     bash/input.c
     bash/mailcheck.c
     bash/shell.c
-    bash/version.c
+    version.c
     bash/dispose_cmd.c
     syntax.c
     bash/xmalloc.c
@@ -105,10 +116,9 @@ add_subdirectory(lib/sh)
 add_subdirectory(lib/glob)
 add_subdirectory(lib/tilde)
 
-add_custom_command(
+file(CONFIGURE
     OUTPUT version.h
-    COMMAND ${CMAKE_SOURCE_DIR}/bash/support/mkversion.sh -b -S ${CMAKE_CURRENT_SOURCE_DIR}/bash -d ${PROJECT_VERSION} -o version.h
-    DEPENDS bash/support/mkversion.sh config.h bash/patchlevel.h
+    CONTENT "/* This file in unused in Bash Commander. */"
 )
 
 add_custom_command(
