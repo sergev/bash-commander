@@ -8,33 +8,8 @@ set(CMAKE_C_STANDARD 11)
 # Mask out most issues in Bash source code.
 add_compile_options(-Wno-deprecated-non-prototype -Wno-parentheses -Wno-incompatible-pointer-types-discards-qualifiers)
 
-# Get git revision count.
-execute_process(
-    COMMAND git rev-list HEAD --count
-    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-    OUTPUT_STRIP_TRAILING_WHITESPACE
-    OUTPUT_VARIABLE GIT_REVCOUNT
-)
-
-# Configure parameters required by Bash.
-add_definitions(-DCONF_MACHTYPE="${CMAKE_SYSTEM_PROCESSOR}-${CMAKE_C_COMPILER_ID}-${CMAKE_SYSTEM}")
-add_definitions(-DCONF_HOSTTYPE="${CMAKE_SYSTEM_PROCESSOR}")
-add_definitions(-DCONF_VENDOR="${CMAKE_C_COMPILER_ID}")
-add_definitions(-DCONF_OSTYPE="${CMAKE_SYSTEM}")
-add_definitions(-DLOCALEDIR="/usr/local/share/locale")
-add_definitions(-DPACKAGE="bashc")
-add_definitions(-DDISTVERSION="${CMAKE_PROJECT_VERSION}")
-add_definitions(-DDEFAULT_COMPAT_LEVEL=${CMAKE_PROJECT_VERSION_MAJOR}*10+${CMAKE_PROJECT_VERSION_MINOR})
-add_definitions(-DBUILDVERSION=${GIT_REVCOUNT})
-add_definitions(-DHAVE_CONFIG_H)
-add_definitions(-DSHELL)
-add_definitions(-DCOMMANDER)
-
-include(CheckSymbolExists)
-check_symbol_exists(arc4random "stdlib.h" HAVE_ARC4RANDOM)
-if(HAVE_ARC4RANDOM)
-    add_definitions(-DHAVE_ARC4RANDOM)
-endif()
+# Configure parameters for your system.
+include(config.cmake)
 
 # Need Bison for grammar.
 find_package(BISON 3.0 REQUIRED)

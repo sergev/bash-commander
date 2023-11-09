@@ -269,9 +269,6 @@
 
 /* Memory management functions. */
 
-/* Define if using the bash version of malloc in lib/malloc/malloc.c */
-//TODO: #define USING_BASH_MALLOC 1
-
 /* #undef DISABLE_MALLOC_WRAPPERS */
 
 /* Define if using alloca.c.  */
@@ -289,9 +286,6 @@
 
 /* Define if major/minor/makedev is defined in <sys/mkdev.h> */
 /* #undef MAJOR_IN_MAKEDEV */
-
-/* Define if major/minor/makedev is defined in <sys/sysmacros.h> */
-#define MAJOR_IN_SYSMACROS 1
 
 /* SYSTEM TYPES */
 
@@ -401,14 +395,7 @@
 /* Check for the presence of certain non-function symbols in the system
    libraries. */
 
-/* Define if `sys_siglist' is declared by <signal.h> or <unistd.h>.  */
-#define HAVE_DECL_SYS_SIGLIST 0
 /* #undef SYS_SIGLIST_DECLARED */
-
-/* Define if `_sys_siglist' is declared by <signal.h> or <unistd.h>.  */
-/* #undef UNDER_SYS_SIGLIST_DECLARED */
-
-/* #undef HAVE_SYS_SIGLIST */
 
 /* #undef HAVE_UNDER_SYS_SIGLIST */
 
@@ -423,13 +410,7 @@
 
 #define HAVE_STRUCT_DIRENT_D_FILENO 1
 
-/* #undef HAVE_STRUCT_DIRENT_D_NAMLEN */
-
-/* #undef TIOCSTAT_IN_SYS_IOCTL */
-
 #define FIONREAD_IN_SYS_IOCTL 1
-
-#define GWINSZ_IN_SYS_IOCTL 1
 
 #define STRUCT_WINSIZE_IN_SYS_IOCTL 1
 
@@ -438,10 +419,6 @@
 /* #undef STRUCT_WINSIZE_IN_TERMIOS */
 
 /* #undef SPEED_T_IN_SYS_TYPES */
-
-#define TERMIOS_LDISC 1
-
-#define TERMIO_LDISC 1
 
 #define HAVE_STRUCT_STAT_ST_BLOCKS 1
 
