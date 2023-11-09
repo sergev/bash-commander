@@ -1,5 +1,9 @@
-/* config.h.  Generated from config.h.in by configure.  */
-/* config.h -- Configuration file for bash. */
+/* config.h -- Configuration file for bash.
+   This file was inherited from bash configure script.
+   Now it's being mainained manually for Bash Commander.
+   If something in this file fails for your target platform,
+   please update script config.cmake and this file.
+*/
 
 /* Copyright (C) 1987-2009,2011-2012,2013-2019 Free Software Foundation, Inc.
 

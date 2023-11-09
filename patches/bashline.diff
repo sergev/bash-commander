@@ -1,0 +1,13 @@
+--- bash/bashline.c	2023-11-07 19:54:02
++++ bashline.c	2023-11-07 23:50:49
+@@ -78,6 +78,10 @@
+ 
+ #if defined (PROGRAMMABLE_COMPLETION)
+ #  include "pcomplete.h"
++#endif
++
++#if defined (COMMANDER)
++#  include "commander.h"
+ #endif
+ 
+ /* These should agree with the defines for emacs_mode and vi_mode in

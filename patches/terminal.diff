@@ -1,0 +1,85 @@
+--- bash/lib/readline/terminal.c	2023-11-07 19:54:02
++++ lib/readline/terminal.c	2023-11-07 18:58:36
+@@ -170,6 +170,21 @@
+ static char *_rl_term_kh;
+ static char *_rl_term_kH;
+ static char *_rl_term_at7;	/* @7 */
++static char *_rl_term_kP;	/* pageup */
++static char *_rl_term_kN;	/* pagedown */
++static char *_rl_term_ac;	/* graphics charset pairs */
++static char *_rl_term_as;	/* start graphics charset */
++static char *_rl_term_ae;	/* end graphics charset */
++static char *_rl_term_me;	/* turn off all attributes */
++static char *_rl_term_mr;	/* reverse video mode */
++static char *_rl_term_md;	/* bold mode */
++
++/* Function keys */
++static char *_rl_term_f1, *_rl_term_f2, *_rl_term_f3, *_rl_term_f4;
++static char *_rl_term_f5, *_rl_term_f6, *_rl_term_f7, *_rl_term_f8;
++static char *_rl_term_f9, *_rl_term_f10, *_rl_term_f11, *_rl_term_f12;
++static char *_rl_term_f13, *_rl_term_f14, *_rl_term_f15, *_rl_term_f16;
++static char *_rl_term_f17, *_rl_term_f18, *_rl_term_f19, *_rl_term_f20;
+ 
+ /* Delete key */
+ static char *_rl_term_kD;
+@@ -416,15 +431,39 @@
+ {
+   { "@7", &_rl_term_at7 },
+   { "DC", &_rl_term_DC },
++  { "F1", &_rl_term_f11 },	/* F11 */
++  { "F2", &_rl_term_f12 },
++  { "F3", &_rl_term_f13 },
++  { "F4", &_rl_term_f14 },
++  { "F5", &_rl_term_f15 },
++  { "F6", &_rl_term_f16 },
++  { "F7", &_rl_term_f17 },
++  { "F8", &_rl_term_f18 },
++  { "F9", &_rl_term_f19 },
++  { "FA", &_rl_term_f20 },	/* F20 */
+   { "E3", &_rl_term_clrscroll },
+   { "IC", &_rl_term_IC },
++  { "ac", &_rl_term_ac },	/* graphics charset pairs */
++  { "ae", &_rl_term_ae },	/* end graphics charset */
++  { "as", &_rl_term_as },	/* start graphics charset */
+   { "ce", &_rl_term_clreol },
+   { "cl", &_rl_term_clrpag },
++  { "cm", &_rl_term_goto },
+   { "cr", &_rl_term_cr },
+   { "dc", &_rl_term_dc },
+   { "ei", &_rl_term_ei },
+   { "ic", &_rl_term_ic },
+   { "im", &_rl_term_im },
++  { "k1", &_rl_term_f1 },	/* F1 */
++  { "k2", &_rl_term_f2 },
++  { "k3", &_rl_term_f3 },
++  { "k4", &_rl_term_f4 },
++  { "k5", &_rl_term_f5 },
++  { "k6", &_rl_term_f6 },
++  { "k7", &_rl_term_f7 },
++  { "k8", &_rl_term_f8 },
++  { "k9", &_rl_term_f9 },
++  { "k;", &_rl_term_f10 },	/* F10 */
+   { "kD", &_rl_term_kD },	/* delete */
+   { "kH", &_rl_term_kH },	/* home down ?? */
+   { "kI", &_rl_term_kI },	/* insert */
+@@ -438,8 +477,11 @@
+   { "ks", &_rl_term_ks },	/* start keypad mode */
+   { "ku", &_rl_term_ku },
+   { "le", &_rl_term_backspace },
++  { "md", &_rl_term_md },	/* bold mode */
++  { "me", &_rl_term_me },	/* turn off all attributes */
+   { "mm", &_rl_term_mm },
+   { "mo", &_rl_term_mo },
++  { "mr", &_rl_term_mr },	/* reverse video mode */
+   { "nd", &_rl_term_forward_char },
+   { "pc", &_rl_term_pc },
+   { "se", &_rl_term_se },
+@@ -474,6 +516,8 @@
+   int tty, tgetent_ret, dumbterm, reset_region_colors;
+ 
+   term = terminal_name ? terminal_name : sh_get_env_value ("TERM");
++  _rl_term_kP = _rl_term_kN = (char *)NULL;
++  _rl_term_ac = _rl_term_as = _rl_term_ae = (char *)NULL;
+   _rl_term_clrpag = _rl_term_cr = _rl_term_clreol = _rl_term_clrscroll = (char *)NULL;
+   tty = rl_instream ? fileno (rl_instream) : 0;
+ 

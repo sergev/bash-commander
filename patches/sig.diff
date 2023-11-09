@@ -1,0 +1,24 @@
+--- bash/sig.c	2023-11-07 19:54:02
++++ sig.c	2023-11-07 23:50:53
+@@ -57,6 +57,10 @@
+ 
+ extern void initialize_siglist PARAMS((void));
+ extern void set_original_signal PARAMS((int, SigHandler *));
++
++#if defined (COMMANDER)
++#  include "commander.h"
++#endif
+ 
+ #if !defined (JOB_CONTROL)
+ extern void initialize_job_signals PARAMS((void));
+@@ -447,6 +451,10 @@
+   if (interactive)
+     bashline_reset ();
+ #endif /* READLINE */
++
++#if defined (COMMANDER)
++  cmdr_activate (-1);
++#endif
+ 
+ #if defined (PROCESS_SUBSTITUTION)
+   unlink_fifo_list ();

@@ -1,0 +1,23 @@
+--- bash/locale.c	2023-11-07 19:54:02
++++ locale.c	2023-11-07 23:50:52
+@@ -49,6 +49,10 @@
+ 
+ int singlequote_translations = 0;	/* single-quote output of $"..." */
+ 
++#if defined (COMMANDER)
++#  include "commander.h"
++#endif
++
+ extern int dump_translatable_strings, dump_po_strings;
+ 
+ /* The current locale when the program begins */
+@@ -295,6 +299,9 @@
+       else
+ 	internal_warning(_("setlocale: %s: cannot change locale (%s): %s"), var, get_locale_var (var), strerror (errno));
+     }
++#if defined (COMMANDER)
++  cmdr_reset_graphics ();
++#endif
+ 
+   return (x != 0);
+ }
