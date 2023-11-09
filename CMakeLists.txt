@@ -45,12 +45,6 @@ set(CURSES_NEED_NCURSES TRUE)
 #set(CURSES_NEED_WIDE TRUE)
 find_package(Curses REQUIRED)
 
-# Create empty version.h - it's required by Bash sources.
-file(CONFIGURE
-    OUTPUT version.h
-    CONTENT "/* This file in unused in Bash Commander. */"
-)
-
 # Create signames.h - a list of signal names.
 add_executable(mksignames
     bash/support/mksignames.c
@@ -117,7 +111,15 @@ add_executable(${PROJECT_NAME}
     bash/redir.c
     signames.h
 )
-target_link_libraries(${PROJECT_NAME} builtins readline sh glob tilde ${CURSES_LIBRARIES})
+target_link_libraries(${PROJECT_NAME}
+    builtins
+    readline
+    sh
+    glob
+    tilde
+    ${CURSES_LIBRARIES}
+    ${CMAKE_DL_LIBS}
+)
 include_directories(
     .
     bash
