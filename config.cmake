@@ -21,7 +21,7 @@ add_definitions(-DCOMMANDER)
 
 include(CheckSymbolExists)
 include(CheckStructHasMember)
-#include(CheckIncludeFile)
+include(CheckIncludeFile)
 
 # Check for arc4random() function.
 check_symbol_exists(arc4random "stdlib.h" HAVE_ARC4RANDOM)
@@ -63,4 +63,144 @@ endif()
 check_symbol_exists(TCSADRAIN "termios.h" TERMIOS_LDISC)
 if(TERMIOS_LDISC)
     add_definitions(-DTERMIOS_LDISC=1)
+endif()
+
+# Check for field st_atim in struct stat.
+check_struct_has_member("struct stat" st_atim "sys/stat.h" HAVE_STRUCT_STAT_ST_ATIM_TV_NSEC)
+if(HAVE_STRUCT_STAT_ST_ATIM_TV_NSEC)
+    add_definitions(-DHAVE_STRUCT_STAT_ST_ATIM_TV_NSEC=1)
+    add_definitions(-DTYPEOF_STRUCT_STAT_ST_ATIM_IS_STRUCT_TIMESPEC=1)
+endif()
+
+# Check for field st_atimespec in struct stat.
+check_struct_has_member("struct stat" st_atimespec "sys/stat.h" HAVE_STRUCT_STAT_ST_ATIMESPEC_TV_NSEC)
+if(HAVE_STRUCT_STAT_ST_ATIMESPEC_TV_NSEC)
+    add_definitions(-DHAVE_STRUCT_STAT_ST_ATIMESPEC_TV_NSEC=1)
+endif()
+
+# Check for macro AUDIT_USER_TTY.
+check_symbol_exists(AUDIT_USER_TTY "linux/audit.h" HAVE_DECL_AUDIT_USER_TTY)
+if(HAVE_DECL_AUDIT_USER_TTY)
+    add_definitions(-DHAVE_DECL_AUDIT_USER_TTY=1)
+else()
+    add_definitions(-DHAVE_DECL_AUDIT_USER_TTY=0)
+endif()
+
+if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
+    # Whether to use pipes to communicate with the process group leader.
+    add_definitions(-DPGRP_PIPE=1)
+
+    # Use ulimit(4, 0) to get the maximum number of files that the process can open.
+    add_definitions(-DULIMIT_MAXFDS=1)
+endif()
+
+# Check for eaccess() function.
+check_symbol_exists(eaccess "unistd.h" HAVE_EACCESS)
+if(HAVE_EACCESS)
+    add_definitions(-DHAVE_EACCESS=1)
+endif()
+
+# Check for fpurge() function.
+check_symbol_exists(fpurge "stdio.h" HAVE_FPURGE)
+if(HAVE_FPURGE)
+    add_definitions(-DHAVE_FPURGE=1)
+    add_definitions(-DHAVE_DECL_FPURGE=1)
+else()
+    add_definitions(-DHAVE_DECL_FPURGE=0)
+endif()
+
+# Check for __fpurge() function.
+check_symbol_exists(__fpurge "stdio_ext.h" HAVE___FPURGE)
+if(HAVE___FPURGE)
+    add_definitions(-DHAVE___FPURGE=1)
+endif()
+
+# Check for getrandom() function.
+check_symbol_exists(getrandom "sys/random.h" HAVE_GETRANDOM)
+if(HAVE_GETRANDOM)
+    add_definitions(-DHAVE_GETRANDOM=1)
+endif()
+
+# Check for iconv() function.
+check_symbol_exists(iconv "iconv.h" HAVE_ICONV)
+if(HAVE_ICONV)
+    add_definitions(-DHAVE_ICONV=1)
+endif()
+
+# Check for setresgid() function.
+check_symbol_exists(setresgid "unistd.h" HAVE_SETRESGID)
+if(HAVE_SETRESGID)
+    add_definitions(-DHAVE_SETRESGID=1)
+endif()
+
+# Check for setresuid() function.
+check_symbol_exists(setresuid "unistd.h" HAVE_SETRESUID)
+if(HAVE_SETRESUID)
+    add_definitions(-DHAVE_SETRESUID=1)
+endif()
+
+# Check for strchrnul() function.
+check_symbol_exists(strchrnul "string.h" HAVE_STRCHRNUL)
+if(HAVE_STRCHRNUL)
+    add_definitions(-DHAVE_STRCHRNUL=1)
+endif()
+
+# Check for <termio.h> header file.
+check_include_file("termio.h" HAVE_TERMIO_H)
+if(HAVE_TERMIO_H)
+    add_definitions(-DHAVE_TERMIO_H=1)
+endif()
+
+# Check for <termios.h> header file.
+check_include_file("termios.h" HAVE_TERMIOS_H)
+if(HAVE_TERMIOS_H)
+    add_definitions(-DHAVE_TERMIOS_H=1)
+endif()
+
+# Check for <argz.h> header file.
+check_include_file("argz.h" HAVE_ARGZ_H)
+if(HAVE_ARGZ_H)
+    add_definitions(-DHAVE_ARGZ_H=1)
+endif()
+
+# Check for <malloc.h> header file.
+check_include_file("malloc.h" HAVE_MALLOC_H)
+if(HAVE_MALLOC_H)
+    add_definitions(-DHAVE_MALLOC_H=1)
+endif()
+
+# Check for <stdio_ext.h> header file.
+check_include_file("stdio_ext.h" HAVE_STDIO_EXT_H)
+if(HAVE_STDIO_EXT_H)
+    add_definitions(-DHAVE_STDIO_EXT_H=1)
+endif()
+
+# Check for mempcpy() function.
+check_symbol_exists(mempcpy "string.h" HAVE_MEMPCPY)
+if(HAVE_MEMPCPY)
+    add_definitions(-DHAVE_MEMPCPY=1)
+endif()
+
+# Check for mremap() function.
+check_symbol_exists(mremap "sys/mman.h" HAVE_MREMAP)
+if(HAVE_MREMAP)
+    add_definitions(-DHAVE_MREMAP=1)
+endif()
+
+# Check for __argz_count() function.
+check_symbol_exists(__argz_count "argz.h" HAVE___ARGZ_COUNT)
+if(HAVE___ARGZ_COUNT)
+    add_definitions(-DHAVE___ARGZ_COUNT=1)
+endif()
+
+# Check for __argz_next() function.
+check_symbol_exists(__argz_next "argz.h" HAVE___ARGZ_NEXT)
+if(HAVE___ARGZ_NEXT)
+    add_definitions(-DHAVE___ARGZ_NEXT=1)
+endif()
+
+# Check for __argz_stringify() function.
+check_symbol_exists(__argz_stringify "argz.h" HAVE___ARGZ_STRINGIFY)
+if(HAVE___ARGZ_STRINGIFY)
+    add_definitions(-DHAVE___ARGZ_STRINGIFY=1)
 endif()
