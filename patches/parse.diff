@@ -1,17 +1,35 @@
---- bash/parse.y	2023-11-09 16:31:24
-+++ parse.y	2023-11-07 23:51:05
-@@ -73,6 +73,10 @@
- #else
+--- bash/parse.y	2023-11-10 18:33:38.047862410 -0800
++++ parse.y	2023-11-10 18:46:42.277862703 -0800
+@@ -74,6 +74,10 @@
  extern int cleanup_dead_jobs PARAMS((void));
  #endif /* JOB_CONTROL */
-+
+ 
 +#if defined (COMMANDER)
 +#  include "commander.h"
 +#endif /* COMMANDER */
- 
++
  #if defined (ALIAS)
  #  include "alias.h"
-@@ -2465,6 +2469,21 @@
+ #else
+@@ -366,6 +370,8 @@
+ /* Special; never created by yylex; only set by parse_comsub and xparse_dolparen */
+ %token DOLPAREN
+ 
++%token END_OF_FILE 0
++
+ /* The types that the various syntactical units return. */
+ 
+ %type <command> inputunit command pipeline pipeline_command
+@@ -452,7 +458,7 @@
+ 			      YYABORT;
+ 			    }
+ 			}
+-	|	error YYEOF
++	|	error END_OF_FILE
+ 			{
+ 			  global_command = (COMMAND *)NULL;
+ 			  if (last_command_exit_value == 0)
+@@ -2480,6 +2486,21 @@
  
        set_line_mbstate ();
  
@@ -33,3 +51,15 @@
  #if defined (HISTORY)
        if (remember_on_history && shell_input_line && shell_input_line[0])
  	{
+@@ -2912,9 +2933,9 @@
+ 
+   if (current_token < 0)
+ #if defined (YYERRCODE) && !defined (YYUNDEF)
+-    current_token = EOF_Reached ? YYEOF : YYERRCODE;
++    current_token = EOF_Reached ? END_OF_FILE : YYERRCODE;
+ #else
+-    current_token = EOF_Reached ? YYEOF : YYUNDEF;
++    current_token = EOF_Reached ? END_OF_FILE : YYUNDEF;
+ #endif
+ 
+   return (current_token);

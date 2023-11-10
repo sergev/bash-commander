@@ -370,6 +370,8 @@ static FILE *yyerrstream;
 /* Special; never created by yylex; only set by parse_comsub and xparse_dolparen */
 %token DOLPAREN
 
+%token END_OF_FILE 0
+
 /* The types that the various syntactical units return. */
 
 %type <command> inputunit command pipeline pipeline_command
@@ -456,7 +458,7 @@ inputunit:	simple_list simple_list_terminator
 			      YYABORT;
 			    }
 			}
-	|	error YYEOF
+	|	error END_OF_FILE
 			{
 			  global_command = (COMMAND *)NULL;
 			  if (last_command_exit_value == 0)
@@ -2931,9 +2933,9 @@ yylex ()
 
   if (current_token < 0)
 #if defined (YYERRCODE) && !defined (YYUNDEF)
-    current_token = EOF_Reached ? YYEOF : YYERRCODE;
+    current_token = EOF_Reached ? END_OF_FILE : YYERRCODE;
 #else
-    current_token = EOF_Reached ? YYEOF : YYUNDEF;
+    current_token = EOF_Reached ? END_OF_FILE : YYUNDEF;
 #endif
 
   return (current_token);
