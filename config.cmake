@@ -19,6 +19,7 @@ add_definitions(-DHAVE_CONFIG_H)
 add_definitions(-DSHELL)
 add_definitions(-DCOMMANDER)
 
+include(FindIconv)
 include(CheckSymbolExists)
 include(CheckStructHasMember)
 include(CheckIncludeFile)
@@ -203,4 +204,22 @@ endif()
 check_symbol_exists(__argz_stringify "argz.h" HAVE___ARGZ_STRINGIFY)
 if(HAVE___ARGZ_STRINGIFY)
     add_definitions(-DHAVE___ARGZ_STRINGIFY=1)
+endif()
+
+# Check for getpwent() function.
+check_symbol_exists(getpwent "pwd.h" HAVE_GETPWENT)
+if(HAVE_GETPWENT)
+    add_definitions(-DHAVE_GETPWENT=1)
+endif()
+
+# Check for getentropy() function.
+check_symbol_exists(getentropy "unistd.h" HAVE_GETENTROPY)
+if(HAVE_GETENTROPY)
+    add_definitions(-DHAVE_GETENTROPY=1)
+endif()
+
+# Check for getdtablesize() function.
+check_symbol_exists(getdtablesize "unistd.h" HAVE_GETDTABLESIZE)
+if(HAVE_GETDTABLESIZE)
+    add_definitions(-DHAVE_GETDTABLESIZE=1)
 endif()

@@ -92,6 +92,7 @@ target_link_libraries(${PROJECT_NAME}
     sh
     glob
     tilde
+    ${Iconv_LIBRARY}
     ${CURSES_LIBRARIES}
     ${CMAKE_DL_LIBS}
 )

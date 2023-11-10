@@ -583,12 +583,6 @@
 /* Define if you have the getcwd function.  */
 #define HAVE_GETCWD 1
 
-/* Define if you have the getentropy function.  */
-#define HAVE_GETENTROPY 1
-
-/* Define if you have the getdtablesize function.  */
-#define HAVE_GETDTABLESIZE 1
-
 /* Define if you have the getgroups function.  */
 #define HAVE_GETGROUPS 1
 
@@ -603,9 +597,6 @@
 
 /* Define if you have the getpeername function.  */
 #define HAVE_GETPEERNAME 1
-
-/* Define if you have the getpwent function. */
-#define HAVE_GETPWENT 1
 
 /* Define if you have the getpwnam function. */
 #define HAVE_GETPWNAM 1
