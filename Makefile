@@ -44,7 +44,7 @@ PATCHES = patches/bashline.diff \
           patches/locale.diff \
           patches/sig.diff \
           patches/variables.diff
-patches: $(PATCHES)
+patches: bash $(PATCHES)
 
 patches/bashline.diff: bash/bashline.c bashline.c
 	-diff -u -w bash/bashline.c bashline.c > $@
@@ -63,3 +63,38 @@ patches/sig.diff: bash/sig.c sig.c
 
 patches/variables.diff: bash/variables.c variables.c
 	-diff -u -w bash/variables.c variables.c > $@
+
+#
+# Create C sources by applying patches to the original Bash code.
+#
+SOURCES = bashline.c-new \
+          lib/readline/display.c-new \
+          lib/readline/terminal.c-new \
+          locale.c-new \
+          sig.c-new \
+          variables.c-new
+sources: bash $(SOURCES)
+	@mv bashline.c-new bashline.c
+	@mv lib/readline/display.c-new lib/readline/display.c
+	@mv lib/readline/terminal.c-new lib/readline/terminal.c
+	@mv locale.c-new locale.c
+	@mv sig.c-new sig.c
+	@mv variables.c-new variables.c
+
+bashline.c-new: patches/bashline.diff bash/bashline.c
+	patch --ignore-whitespace -o $@ bash/bashline.c patches/bashline.diff
+
+lib/readline/display.c-new: patches/display.diff bash/lib/readline/display.c
+	patch --ignore-whitespace -o $@ bash/lib/readline/display.c patches/display.diff
+
+lib/readline/terminal.c-new: patches/terminal.diff bash/lib/readline/terminal.c
+	patch --ignore-whitespace -o $@ bash/lib/readline/terminal.c patches/terminal.diff
+
+locale.c-new: patches/locale.diff bash/locale.c
+	patch --ignore-whitespace -o $@ bash/locale.c patches/locale.diff
+
+sig.c-new: patches/sig.diff bash/sig.c
+	patch --ignore-whitespace -o $@ bash/sig.c patches/sig.diff
+
+variables.c-new: patches/variables.diff bash/variables.c
+	patch --ignore-whitespace -o $@ bash/variables.c patches/variables.diff
