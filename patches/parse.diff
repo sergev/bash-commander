@@ -1,0 +1,35 @@
+--- bash/parse.y	2023-11-09 16:31:24
++++ parse.y	2023-11-07 23:51:05
+@@ -73,6 +73,10 @@
+ #else
+ extern int cleanup_dead_jobs PARAMS((void));
+ #endif /* JOB_CONTROL */
++
++#if defined (COMMANDER)
++#  include "commander.h"
++#endif /* COMMANDER */
+ 
+ #if defined (ALIAS)
+ #  include "alias.h"
+@@ -2465,6 +2469,21 @@
+ 
+       set_line_mbstate ();
+ 
++#if defined (COMMANDER)
++      if (interactive_shell && SHOULD_PROMPT() &&
++          no_line_editing == 0 && current_readline_line)
++        {
++          if ((shell_input_line && shell_input_line[0]) ||
++              shell_input_line_terminator == EOF)
++            cmdr_activate (0);
++          else
++            cmdr_activate (1);
++
++          if (token_to_read == '\n')
++            token_to_read = 0;
++        }
++#endif
++
+ #if defined (HISTORY)
+       if (remember_on_history && shell_input_line && shell_input_line[0])
+ 	{
