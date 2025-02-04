@@ -120,3 +120,22 @@ install(FILES
     bash_dialog
     DESTINATION etc
 )
+
+# Build Debian package.
+if(LINUX)
+    find_program(DPKG_CMD dpkg)
+    if(DPKG_CMD)
+        execute_process(COMMAND "${DPKG_CMD}" --print-architecture
+            OUTPUT_VARIABLE CPACK_DEBIAN_PACKAGE_ARCHITECTURE
+            OUTPUT_STRIP_TRAILING_WHITESPACE
+        )
+        set(CPACK_GENERATOR "DEB")
+        set(CPACK_PACKAGE_VERSION "${CMAKE_PROJECT_VERSION}.${GIT_REVCOUNT}")
+        set(CPACK_PACKAGE_FILE_NAME "${CMAKE_PROJECT_NAME}-${CPACK_PACKAGE_VERSION}-${CPACK_DEBIAN_PACKAGE_ARCHITECTURE}")
+        set(CPACK_DEBIAN_PACKAGE_PREDEPENDS "libc6 (>= 2.36), libtinfo6 (>= 6)")
+        set(CPACK_DEBIAN_PACKAGE_DEPENDS "base-files (>= 2.1.12), debianutils (>= 5.6-0.1), dialog")
+        set(CPACK_DEBIAN_PACKAGE_MAINTAINER "Serge Vakulenko <serge.vakulenko@gmail.com>")
+        set(CPACK_DEBIAN_PACKAGE_SECTION "shells")
+        include(CPack)
+    endif(DPKG_CMD)
+endif(LINUX)
