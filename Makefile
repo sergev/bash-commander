@@ -26,7 +26,7 @@ build:  bash
 # Checkout Bash sources.
 # Select a specific commit.
 #
-BASH_REPO           = https://git.savannah.gnu.org/git/bash.git
+BASH_REPO           = https://github.com/sailfishos-mirror/bash.git
 BASH_5_2_PATCH_21   = 2bb3cbefdb8fd019765b1a9cc42ecf37ff22fec6
 
 bash:
