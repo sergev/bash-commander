@@ -994,9 +994,6 @@
 /* Define if you have the <sys/ptem.h> header file.  */
 /* #undef HAVE_SYS_PTEM_H */
 
-/* Define if you have the <sys/random.h> header file.  */
-#define HAVE_SYS_RANDOM_H 1
-
 /* Define if you have the <sys/resource.h> header file.  */
 #define HAVE_SYS_RESOURCE_H 1
 

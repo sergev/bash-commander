@@ -85,6 +85,7 @@ add_executable(${PROJECT_NAME}
     bash/bracecomp.c
     bash/redir.c
     signames.h
+    bash/lib/sh/strchrnul.c
 )
 target_link_libraries(${PROJECT_NAME}
     builtins
